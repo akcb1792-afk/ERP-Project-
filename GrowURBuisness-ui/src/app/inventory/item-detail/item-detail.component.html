@@ -1,0 +1,52 @@
+<div class="container">
+  <div class="header">
+    <h2>{{ title }}</h2>
+    <button mat-button routerLink="/inventory">
+      <mat-icon>arrow_back</mat-icon>
+      Back to Items
+    </button>
+  </div>
+
+  <mat-card class="detail-card">
+    <mat-card-header>
+      <mat-card-title>{{ item.name }}</mat-card-title>
+      <mat-card-subtitle>ID: #{{ item.id }}</mat-card-subtitle>
+    </mat-card-header>
+
+    <mat-card-content>
+      <div class="detail-grid">
+        <div class="detail-item">
+          <label>Category:</label>
+          <span>{{ item.category }}</span>
+        </div>
+        <div class="detail-item">
+          <label>Price:</label>
+          <span>{{ item.price | number:'1.2-2' }}</span>
+        </div>
+        <div class="detail-item">
+          <label>Stock Quantity:</label>
+          <span [class.low-stock]="item.stock < 10">{{ item.stock }}</span>
+        </div>
+        <div class="detail-item">
+          <label>Created Date:</label>
+          <span>{{ item.createdDate | date:'medium' }}</span>
+        </div>
+        <div class="detail-item">
+          <label>Last Modified:</label>
+          <span>{{ item.lastModified | date:'medium' }}</span>
+        </div>
+      </div>
+    </mat-card-content>
+
+    <mat-card-actions align="end">
+      <button mat-raised-button color="accent" (click)="onEdit()">
+        <mat-icon>edit</mat-icon>
+        Edit Item
+      </button>
+      <button mat-raised-button color="warn" (click)="onDelete()">
+        <mat-icon>delete</mat-icon>
+        Delete Item
+      </button>
+    </mat-card-actions>
+  </mat-card>
+</div>

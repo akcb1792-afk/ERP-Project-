@@ -1,0 +1,63 @@
+<div class="app-container">
+  <!-- Show login form when not logged in -->
+  <div class="login-container" *ngIf="!isLoggedIn">
+    <div class="login-card">
+      <div class="brand-section">
+        <h1>GrowURBuisness</h1>
+        <p>ERP Management System</p>
+      </div>
+      
+      <form class="login-form" (ngSubmit)="onLogin()">
+        <div class="form-group">
+          <label for="email">Email Address</label>
+          <input 
+            type="email" 
+            id="email"
+            name="email"
+            placeholder="Enter your email"
+            class="form-input"
+            [(ngModel)]="email">
+        </div>
+        
+        <div class="form-group">
+          <label for="password">Password</label>
+          <input 
+            type="password" 
+            id="password"
+            name="password"
+            placeholder="Enter your password"
+            class="form-input"
+            [(ngModel)]="password">
+        </div>
+        
+        <div class="form-options">
+          <label>
+            <input type="checkbox" name="rememberMe" [(ngModel)]="rememberMe">
+            Remember me
+          </label>
+          <a href="#">Forgot password?</a>
+        </div>
+        
+        <button type="submit" class="login-button" [disabled]="isLoading">
+          <span *ngIf="!isLoading">Sign In</span>
+          <span *ngIf="isLoading">Signing in...</span>
+        </button>
+      </form>
+      
+      <div class="login-message" *ngIf="loginMessage">
+        {{ loginMessage }}
+      </div>
+      
+      <div class="demo-info">
+        <p><strong>Demo Account:</strong></p>
+        <p>Email: demo&#64;company.com</p>
+        <p>Password: demo123</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Show main app when logged in -->
+  <div class="main-app" *ngIf="isLoggedIn">
+    <router-outlet></router-outlet>
+  </div>
+</div>

@@ -1,0 +1,91 @@
+<div class="dashboard-layout">
+  <!-- Sidebar -->
+  <div class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <div class="logo-container">
+        <div class="logo-icon">ERP</div>
+        <div class="logo-text">GrowURBuisness</div>
+      </div>
+      <button class="sidebar-toggle" (click)="toggleSidebar()">×</button>
+    </div>
+    
+    <nav class="sidebar-nav">
+      <div class="nav-section">
+        <div class="section-title">Main Menu</div>
+        <div class="nav-list">
+          <div class="nav-item" [class.active]="isActive('/dashboard')">
+            <a routerLink="/dashboard" class="nav-link">
+              <div class="nav-icon dashboard-icon"></div>
+              <div class="nav-text">Dashboard</div>
+            </a>
+          </div>
+          <div class="nav-item" [class.active]="isActive('/inventory')">
+            <a routerLink="/inventory" class="nav-link">
+              <div class="nav-icon inventory-icon"></div>
+              <div class="nav-text">Inventory</div>
+            </a>
+          </div>
+          <div class="nav-item" [class.active]="isActive('/purchase')">
+            <a routerLink="/purchase" class="nav-link">
+              <div class="nav-icon add-icon"></div>
+              <div class="nav-text">Purchase</div>
+            </a>
+          </div>
+          
+          <div class="nav-item" [class.active]="isActive('/sales')">
+            <a routerLink="/sales" class="nav-link">
+              <div class="nav-icon receipt-icon"></div>
+              <div class="nav-text">Sales </div>
+            </a>
+          </div>
+          <div class="nav-item" [class.active]="isActive('/customers')">
+            <a routerLink="/customers" class="nav-link">
+              <div class="nav-icon people-icon"></div>
+              <div class="nav-text">Customers</div>
+            </a>
+          </div>
+          <div class="nav-item" [class.active]="isActive('/reports')">
+            <a routerLink="/reports" class="nav-link">
+              <div class="nav-icon reports-icon"></div>
+              <div class="nav-text">Reports</div>
+            </a>
+          </div>
+        </div>
+      </div>
+      
+      <div class="nav-section">
+        <div class="section-title">Settings</div>
+        <div class="nav-list">
+          <div class="nav-item">
+            <a routerLink="/dashboard" class="nav-link">
+              <div class="nav-icon settings-icon"></div>
+              <div class="nav-text">Settings</div>
+            </a>
+          </div>
+          <div class="nav-item">
+            <a (click)="logout()" class="nav-link logout">
+              <div class="nav-icon logout-icon"></div>
+              <div class="nav-text">Logout</div>
+            </a>
+          </div>
+        </div>
+      </div>
+    </nav>
+  </div>
+  
+  <!-- Main Content -->
+  <div class="main-content">
+    <div class="top-bar">
+      <button class="mobile-menu-toggle" (click)="toggleSidebar()">
+        <span>Menu</span>
+      </button>
+      <div class="user-info">
+        <span class="user-email">{{ getUserEmail() }}</span>
+      </div>
+    </div>
+    
+    <div class="content-area">
+      <router-outlet></router-outlet>
+    </div>
+  </div>
+</div>

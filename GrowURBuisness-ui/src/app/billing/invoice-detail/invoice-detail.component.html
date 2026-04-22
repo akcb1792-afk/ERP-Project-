@@ -1,0 +1,48 @@
+<div class="container">
+  <div class="header">
+    <h2>{{ title }}</h2>
+    <button mat-button routerLink="/billing">
+      <mat-icon>arrow_back</mat-icon>
+      Back to Invoices
+    </button>
+  </div>
+
+  <mat-card class="detail-card">
+    <mat-card-header>
+      <mat-card-title>Invoice #{{ invoice.id }}</mat-card-title>
+      <mat-card-subtitle>{{ invoice.date | date:'medium' }}</mat-card-subtitle>
+    </mat-card-header>
+
+    <mat-card-content>
+      <div class="detail-grid">
+        <div class="detail-item">
+          <label>Customer:</label>
+          <span>{{ invoice.customer }}</span>
+        </div>
+        <div class="detail-item">
+          <label>Total Amount:</label>
+          <span>{{ invoice.total | number:'1.2-2' }}</span>
+        </div>
+        <div class="detail-item">
+          <label>Payment Type:</label>
+          <span>{{ invoice.paymentType }}</span>
+        </div>
+        <div class="detail-item">
+          <label>Status:</label>
+          <span [class.status-paid]="invoice.status === 'Paid'">{{ invoice.status }}</span>
+        </div>
+      </div>
+    </mat-card-content>
+
+    <mat-card-actions align="end">
+      <button mat-raised-button color="primary" (click)="onPrint()">
+        <mat-icon>print</mat-icon>
+        Print Invoice
+      </button>
+      <button mat-raised-button color="accent" (click)="onEdit()">
+        <mat-icon>edit</mat-icon>
+        Edit Invoice
+      </button>
+    </mat-card-actions>
+  </mat-card>
+</div>

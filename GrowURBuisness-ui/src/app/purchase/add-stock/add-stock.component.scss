@@ -1,0 +1,238 @@
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.header h2 {
+  margin: 0;
+  color: #333;
+}
+
+.form-container {
+  display: flex;
+  gap: 20px;
+}
+
+.form-card {
+  flex: 1;
+  min-width: 400px;
+}
+
+.form-row {
+  display: flex;
+  gap: 16px;
+}
+
+.list-container {
+  flex: 2;
+  min-width: 600px;
+}
+
+.list-card {
+  margin-top: 20px;
+}
+
+.table-container {
+  overflow-x: auto;
+}
+
+mat-form-field {
+  width: 100%;
+}
+
+button[type="submit"] {
+  width: 100%;
+  height: 44px;
+}
+
+// Add Item Button Layout
+.form-row {
+  display: flex;
+  gap: 16px;
+  align-items: flex-end;
+  
+  .item-select-field {
+    flex: 1;
+  }
+  
+  .add-item-btn {
+    white-space: nowrap;
+    min-width: 160px;
+    height: 56px;
+  }
+}
+
+// Modal Styles
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.modal-container {
+  background: white;
+  border-radius: 8px;
+  width: 90%;
+  max-width: 500px;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px;
+  border-bottom: 1px solid #e0e0e0;
+  
+  h3 {
+    margin: 0;
+    color: #333;
+    font-size: 1.5rem;
+  }
+}
+
+.modal-content {
+  padding: 20px;
+  
+  mat-form-field {
+    width: 100%;
+    margin-bottom: 16px;
+  }
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 20px;
+  border-top: 1px solid #e0e0e0;
+  
+  button {
+    min-width: 100px;
+  }
+}
+
+// Submit Purchase Section
+.submit-section {
+  margin-top: 20px;
+}
+
+.submit-card {
+  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+  border: 2px solid #1976d2;
+}
+
+.submit-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
+  
+  .total-amount {
+    h3 {
+      margin: 0;
+      color: #1976d2;
+      font-size: 1.5rem;
+      font-weight: 600;
+    }
+  }
+  
+  .button-group {
+    display: flex;
+    gap: 12px;
+    
+    button {
+      min-width: 180px;
+    mat-icon {
+      margin-right: 8px;
+    }
+    
+    .spinner {
+      animation: spin 1s linear infinite;
+      margin-left: 8px;
+    }
+  }
+}
+
+@keyframes spin {
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+// Select with button styling
+.select-with-button {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  
+  mat-form-field {
+    flex: 1;
+  }
+  
+  button {
+    flex-shrink: 0;
+    margin-top: 8px;
+  }
+}
+
+// Price display styling
+.price-display {
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+  padding: 16px;
+  margin: 16px 0;
+  
+  .price-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+    
+    &:last-child {
+      margin-bottom: 0;
+    }
+    
+    .price-label {
+      font-weight: 500;
+      color: #495057;
+      font-size: 14px;
+    }
+    
+    .price-value {
+      font-weight: 600;
+      color: #1976d2;
+      font-size: 16px;
+    }
+  }
+}
+
+.vendor-status {
+  font-size: 12px;
+  color: #666;
+  
+  &.inactive {
+    color: #f44336;
+    font-weight: 500;
+  }
+}
+
+}

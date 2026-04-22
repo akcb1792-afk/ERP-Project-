@@ -1,0 +1,36 @@
+<div class="container">
+  <div class="header">
+    <h2>{{ title }}</h2>
+    <button mat-button routerLink="/customers">
+      <mat-icon>arrow_back</mat-icon>
+      Back to Customers
+    </button>
+  </div>
+
+  <mat-card class="detail-card">
+    <mat-card-header>
+      <mat-card-title>{{ customer.name }}</mat-card-title>
+      <mat-card-subtitle>ID: #{{ customer.id }}</mat-card-subtitle>
+    </mat-card-header>
+
+    <mat-card-content>
+      <div class="detail-grid">
+        <div class="detail-item">
+          <label>Mobile:</label>
+          <span>{{ customer.mobile }}</span>
+        </div>
+        <div class="detail-item">
+          <label>Created Date:</label>
+          <span>{{ customer.createdDate | date:'medium' }}</span>
+        </div>
+      </div>
+    </mat-card-content>
+
+    <mat-card-actions align="end">
+      <button mat-raised-button color="accent" (click)="onEdit()">
+        <mat-icon>edit</mat-icon>
+        Edit Customer
+      </button>
+    </mat-card-actions>
+  </mat-card>
+</div>

@@ -1,0 +1,69 @@
+<div class="login-container">
+  <!-- Login Card -->
+  <div class="login-card">
+    <!-- Company Logo/Brand -->
+    <div class="brand-section">
+      <div class="logo">
+        <span class="logo-icon">ERP</span>
+        <span class="brand-name">GrowURBuisness</span>
+      </div>
+      <p class="brand-tagline">ERP Management System</p>
+    </div>
+
+    <!-- Login Form -->
+    <form [formGroup]="loginForm" (ngSubmit)="onSubmit()" class="login-form">
+      <div class="form-group">
+        <label for="email">Email Address</label>
+        <input 
+               type="email" 
+               id="email"
+               placeholder="Enter your email"
+               formControlName="email"
+               class="form-input">
+        <div *ngIf="loginForm.get('email')?.invalid && loginForm.get('email')?.touched" class="error-message">
+          {{ getErrorMessage('email') }}
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="password">Password</label>
+        <input 
+               type="password" 
+               id="password"
+               placeholder="Enter your password"
+               formControlName="password"
+               class="form-input">
+        <div *ngIf="loginForm.get('password')?.invalid && loginForm.get('password')?.touched" class="error-message">
+          {{ getErrorMessage('password') }}
+        </div>
+      </div>
+
+      <!-- Remember Me & Forgot Password -->
+      <div class="form-options">
+        <label class="checkbox-label">
+          <input type="checkbox" class="checkbox">
+          Remember me
+        </label>
+        <a class="forgot-password" href="#">Forgot password?</a>
+      </div>
+
+      <!-- Login Button -->
+      <button 
+              type="submit" 
+              class="login-button"
+              [disabled]="loginForm.invalid || isLoading">
+        <span *ngIf="!isLoading">Sign In</span>
+        <span *ngIf="isLoading">Signing in...</span>
+      </button>
+    </form>
+
+    <!-- Demo Account Info -->
+    <div class="demo-info">
+      <div class="demo-text">
+        <p><strong>Demo Account:</strong></p>
+        <p>Email: demo&#64;company.com</p>
+        <p>Password: demo123</p>
+      </div>
+    </div>
+  </div>
+</div>

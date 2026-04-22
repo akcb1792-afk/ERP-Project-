@@ -1,0 +1,148 @@
+<div class="container">
+  <div class="header">
+    <h2>{{ title }}</h2>
+    <div>
+            <button mat-raised-button color="accent" routerLink="/sales/list">
+        <mat-icon>list</mat-icon>
+        View Sales Invoices
+      </button>
+    </div>
+  </div>
+
+  <div class="form-container">
+    <mat-card class="form-card">
+      <mat-card-header>
+        <mat-card-title>Create Sales Invoice</mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <form [formGroup]="billForm" (ngSubmit)="onSubmit()">
+          <div class="form-row">
+            <mat-form-field appearance="outline">
+              <mat-label>Select Customer</mat-label>
+              <mat-select formControlName="customerId">
+                <mat-option value="">-- Select Customer --</mat-option>
+                <mat-option *ngFor="let customer of customers" [value]="customer.id">
+                  {{ customer.name }}
+                </mat-option>
+              </mat-select>
+            </mat-form-field>
+
+            <mat-form-field appearance="outline">
+              <mat-label>Payment Type</mat-label>
+              <mat-select formControlName="paymentType">
+                <mat-option value="Cash">Cash</mat-option>
+                <mat-option value="UPI">UPI</mat-option>
+                <mat-option value="Credit">Credit</mat-option>
+              </mat-select>
+            </mat-form-field>
+          </div>
+
+          <!-- Item Selection -->
+          <div class="form-row">
+            <mat-form-field appearance="outline">
+              <mat-label>Select Item</mat-label>
+              <mat-select formControlName="itemId" (selectionChange)="onItemChange()">
+                <mat-option value="">-- Select Item --</mat-option>
+                <mat-option *ngFor="let item of availableItems" [value]="item.id">
+                  {{ item.name }} - Rate: {{ item.price || 0 | number:'1.2-2' }} - Stock: {{ item.stock || item.stockQuantity || 0 }}
+                </mat-option>
+              </mat-select>
+            </mat-form-field>
+
+            <mat-form-field appearance="outline">
+              <mat-label>Quantity</mat-label>
+              <input matInput type="number" formControlName="quantity" min="1">
+            </mat-form-field>
+
+            <mat-form-field appearance="outline">
+              <mat-label>Purchase Price</mat-label>
+              <input matInput type="number" [value]="selectedItemPrice" readonly>
+            </mat-form-field>
+
+            <mat-form-field appearance="outline">
+              <mat-label>Sales Price</mat-label>
+              <input matInput type="number" formControlName="salePrice" min="0.01" step="0.01">
+            </mat-form-field>
+
+            <button mat-raised-button color="primary" (click)="addItemToBill()" [disabled]="!billForm.get('itemId')?.value">
+              <mat-icon>add_shopping_cart</mat-icon>
+              Add to Bill
+            </button>
+          </div>
+
+          <!-- Bill Items -->
+          <div class="bill-items" *ngIf="billItems.length > 0">
+            <h3>Invoice Items</h3>
+            <div class="items-table">
+              <table class="bill-table">
+                <thead>
+                  <tr>
+                    <th>Item</th>
+                    <th>Purchase Price</th>
+                    <th>Sales Price</th>
+                    <th>Qty</th>
+                    <th>Total</th>
+                    <th>Profit/Loss</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let item of billItems; let i = index">
+                    <td>{{ item.name }}</td>
+                    <td>
+                      <input type="number" [value]="item.purchasePrice" readonly class="rate-input readonly">
+                    </td>
+                    <td>
+                      <input type="number" min="0.01" [value]="item.salePrice" (change)="updateRate(item, $event)" class="rate-input">
+                    </td>
+                    <td>
+                      <input type="number" min="1" [value]="item.quantity" (change)="updateQuantity(item, $event)" class="qty-input">
+                    </td>
+                    <td>{{ item.total | number:'1.2-2' }}</td>
+                    <td [class]="item.profit >= 0 ? 'profit' : 'loss'">
+                      {{ item.profit | number:'1.2-2' }}
+                    </td>
+                    <td>
+                      <button mat-icon-button color="warn" (click)="removeItem(i)">
+                        <mat-icon>delete</mat-icon>
+                      </button>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div class="totals-section">
+              <div class="total-row">
+                <span>Total Amount:</span>
+                <span class="total-amount">{{ getTotalAmount() | number:'1.2-2' }}</span>
+              </div>
+              <div class="total-row">
+                <span>Total Profit/Loss:</span>
+                <span [class]="getTotalProfit() >= 0 ? 'profit-amount' : 'loss-amount'">
+                  {{ getTotalProfit() | number:'1.2-2' }}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Action Buttons -->
+          <div class="form-actions">
+            <button mat-raised-button color="primary" type="submit" [disabled]="isLoading || billItems.length === 0">
+              <mat-icon>save</mat-icon>
+              {{ isLoading ? 'Creating...' : 'Create Invoice' }}
+            </button>
+            <button mat-stroked-button color="accent" type="button" (click)="createInvoiceWithPrint()" [disabled]="isLoading || billItems.length === 0">
+              <mat-icon>print</mat-icon>
+              Create Invoice with Print
+            </button>
+            <button mat-stroked-button color="warn" type="button" (click)="resetForm()">
+              <mat-icon>clear</mat-icon>
+              Reset
+            </button>
+          </div>
+        </form>
+      </mat-card-content>
+    </mat-card>
+  </div>
+</div>

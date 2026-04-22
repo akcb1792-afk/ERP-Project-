@@ -1,0 +1,33 @@
+GITHUB PUSH INSTRUCTIONS - RUN IN CMD (NOT PowerShell)
+
+STEP 1: Open Command Prompt as Administrator
+STEP 2: Navigate to project directory:
+    cd "D:\Akash\ERP Shop"
+
+STEP 3: Initialize Git repository (if not already done):
+    git init
+
+STEP 4: Add all files to Git:
+    git add .
+
+STEP 5: Create initial commit:
+    git commit -m "Initial commit: ERP Angular application with modern UI and database integration"
+
+STEP 6: Create GitHub repository:
+    1. Go to https://github.com
+    2. Click "New repository"
+    3. Name it: erp-angular-app or growurbusiness-erp
+    4. Choose Public or Private
+    5. Click "Create repository"
+
+STEP 7: Add remote origin (replace YOUR_USERNAME and YOUR_REPO):
+    git remote add origin https://github.com/YOUR_USERNAME/YOUR_REPO.git
+
+STEP 8: Push to GitHub:
+    git push -u origin master
+
+STATUS: Project is ready for GitHub deployment!
+- Modern Angular UI with professional theme
+- Database-driven architecture (no hardcoded data)
+- All menu options working
+- Production-ready codebase

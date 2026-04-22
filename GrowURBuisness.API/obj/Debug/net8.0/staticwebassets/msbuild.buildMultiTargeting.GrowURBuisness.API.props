@@ -1,0 +1,3 @@
+﻿<Project>
+  <Import Project="..\build\GrowURBuisness.API.props" />
+</Project>

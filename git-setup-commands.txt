@@ -1,0 +1,15 @@
+# Run these commands in Command Prompt AFTER Git is installed
+
+cd "d:\Akash\ERP Shop"
+
+git init
+git add README.md
+git commit -m "first commit"
+git branch -M main
+git remote add origin https://github.com/akcb1792-afk/ERP-Project-.git
+git push -u origin main
+
+# Alternative: Add all files instead of just README.md
+git add .
+git commit -m "Initial commit: Complete ERP system with Angular frontend and ASP.NET Core backend"
+git push -u origin main

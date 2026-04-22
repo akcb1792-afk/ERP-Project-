@@ -1,0 +1,168 @@
+<div class="container">
+  <div class="header">
+    <h2>Inventory Detail Report</h2>
+    <button mat-raised-button color="primary" (click)="exportToExcel()">
+      <mat-icon>file_download</mat-icon>
+      Export to Excel
+    </button>
+  </div>
+
+  <!-- Loading State -->
+  <div *ngIf="isLoading" class="loading-container">
+    <mat-spinner></mat-spinner>
+    <p>Loading inventory report...</p>
+  </div>
+
+  <!-- Error State -->
+  <div *ngIf="error && !isLoading" class="error-container">
+    <mat-icon class="error-icon">error</mat-icon>
+    <p>{{ error }}</p>
+    <button mat-raised-button color="primary" (click)="loadInventoryReport()">Retry</button>
+  </div>
+
+  <!-- Report Content -->
+  <div *ngIf="!isLoading && !error">
+    <!-- Report Summary -->
+    <mat-card class="summary-card">
+      <mat-card-header>
+        <mat-card-title>Report Summary</mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <div class="summary-grid">
+          <div class="summary-item">
+            <span class="summary-label">Total Items:</span>
+            <span class="summary-value">{{ inventoryData.length }}</span>
+          </div>
+          <div class="summary-item">
+            <span class="summary-label">Low Stock Items:</span>
+            <span class="summary-value">{{ getLowStockItems().length }}</span>
+          </div>
+          <div class="summary-item">
+            <span class="summary-label">Total Value:</span>
+            <span class="summary-value">{{ getTotalInventoryValue() | number:'1.2-2' }}</span>
+          </div>
+          <div class="summary-item">
+            <span class="summary-label">Categories:</span>
+            <span class="summary-value">{{ getUniqueCategories().length }}</span>
+          </div>
+        </div>
+      </mat-card-content>
+    </mat-card>
+
+    <!-- Filters Section -->
+    <mat-card class="filter-card">
+      <mat-card-header>
+        <mat-card-title>Filters</mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <div class="filter-row">
+          <mat-form-field appearance="outline">
+            <mat-label>Search Items</mat-label>
+            <input matInput (keyup)="applyFilter($event)" placeholder="Search by name or category">
+            <mat-icon matSuffix>search</mat-icon>
+          </mat-form-field>
+          
+          <mat-form-field appearance="outline">
+            <mat-label>Category</mat-label>
+            <mat-select (selectionChange)="applyCategoryFilter($event.value)" placeholder="All Categories">
+              <mat-option value="">All Categories</mat-option>
+              <mat-option *ngFor="let category of getUniqueCategories()" [value]="category">
+                {{ category }}
+              </mat-option>
+            </mat-select>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Stock Status</mat-label>
+            <mat-select (selectionChange)="applyStockFilter($event.value)" placeholder="All Items">
+              <mat-option value="">All Items</mat-option>
+              <mat-option value="low">Low Stock Only</mat-option>
+              <mat-option value="normal">Normal Stock</mat-option>
+            </mat-select>
+          </mat-form-field>
+        </div>
+      </mat-card-content>
+    </mat-card>
+
+    <!-- Inventory Table -->
+    <mat-card class="table-card">
+      <mat-card-header>
+        <mat-card-title>Inventory Items ({{ filteredInventoryData.length }} items)</mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <div class="table-container">
+          <table mat-table [dataSource]="filteredInventoryData" class="mat-elevation-z1">
+            <!-- Item Name Column -->
+            <ng-container matColumnDef="name">
+              <th mat-header-cell *matHeaderCellDef>Item Name</th>
+              <td mat-cell *matCellDef="let item">
+                <strong>{{ item.name }}</strong>
+              </td>
+            </ng-container>
+
+            <!-- Item Code Column -->
+            <ng-container matColumnDef="itemCode">
+              <th mat-header-cell *matHeaderCellDef>Item Code</th>
+              <td mat-cell *matCellDef="let item">{{ item.itemCode || item.id }}</td>
+            </ng-container>
+
+            <!-- Category Column -->
+            <ng-container matColumnDef="category">
+              <th mat-header-cell *matHeaderCellDef>Category</th>
+              <td mat-cell *matCellDef="let item">
+                <span class="category-badge">{{ item.category }}</span>
+              </td>
+            </ng-container>
+
+            <!-- Stock Quantity Column -->
+            <ng-container matColumnDef="stockQuantity">
+              <th mat-header-cell *matHeaderCellDef>Stock Quantity</th>
+              <td mat-cell *matCellDef="let item">
+                <span [class.low-stock]="(item.stockQuantity || item.stock || 0) <= lowStockThreshold">
+                  {{ item.stockQuantity || item.stock || 0 }}
+                </span>
+              </td>
+            </ng-container>
+
+            <!-- Purchase Rate Column -->
+            <ng-container matColumnDef="purchaseRate">
+              <th mat-header-cell *matHeaderCellDef>Purchase Rate</th>
+              <td mat-cell *matCellDef="let item">
+                <span class="rate">{{ item.purchaseRate || item.price || 0 | number:'1.2-2' }}</span>
+              </td>
+            </ng-container>
+
+            <!-- Sale Rate Column -->
+            <ng-container matColumnDef="saleRate">
+              <th mat-header-cell *matHeaderCellDef>Sale Rate</th>
+              <td mat-cell *matCellDef="let item">
+                <span class="rate sale-rate">{{ item.saleRate || (item.price * 1.2) || 0 | number:'1.2-2' }}</span>
+              </td>
+            </ng-container>
+
+            <!-- Total Value Column -->
+            <ng-container matColumnDef="totalValue">
+              <th mat-header-cell *matHeaderCellDef>Total Value</th>
+              <td mat-cell *matCellDef="let item">
+                <span class="amount">{{ getTotalValue(item) | number:'1.2-2' }}</span>
+              </td>
+            </ng-container>
+
+            <!-- Status Column -->
+            <ng-container matColumnDef="status">
+              <th mat-header-cell *matHeaderCellDef>Status</th>
+              <td mat-cell *matCellDef="let item">
+                <span class="status-badge" [class.low-stock]="isLowStock(item)" [class.normal-stock]="!isLowStock(item)">
+                  {{ isLowStock(item) ? 'Low Stock' : 'In Stock' }}
+                </span>
+              </td>
+            </ng-container>
+
+            <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+            <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+          </table>
+        </div>
+      </mat-card-content>
+    </mat-card>
+  </div>
+</div>

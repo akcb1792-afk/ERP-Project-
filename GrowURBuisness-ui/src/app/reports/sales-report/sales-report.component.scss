@@ -1,0 +1,49 @@
+.container {
+  padding: 20px;
+}
+
+.container h2 {
+  margin-bottom: 30px;
+  color: #333;
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 20px;
+  margin-bottom: 30px;
+}
+
+.stats-card {
+  text-align: center;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.stats-value {
+  font-size: 36px;
+  font-weight: bold;
+  color: #4caf50;
+  margin: 20px 0;
+}
+
+.table-container {
+  background: white;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+table {
+  width: 100%;
+}
+
+.mat-mdc-row:hover {
+  background-color: rgba(102, 126, 234, 0.05);
+}
+
+.mat-mdc-header-cell {
+  font-weight: 600;
+  color: #667eea;
+}

@@ -1,0 +1,169 @@
+.container {
+  padding: 20px;
+}
+
+.summary-section {
+  margin-bottom: 30px;
+}
+
+.summary-cards-horizontal {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.summary-card {
+  flex: 1;
+  min-width: 200px;
+  mat-card-content {
+    text-align: center;
+  }
+  
+  mat-card-title {
+    font-size: 14px;
+    font-weight: 600;
+  }
+  
+  .summary-value {
+    font-size: 24px;
+    font-weight: bold;
+    color: #667eea;
+  }
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.header h2 {
+  margin: 0;
+  color: #333;
+}
+
+// Filter Card
+.filter-card {
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  margin-bottom: 20px;
+}
+
+.filter-form {
+  .filter-row {
+    display: flex;
+    gap: 16px;
+    align-items: flex-end;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+    
+    mat-form-field {
+      flex: 1;
+      min-width: 200px;
+    }
+  }
+  
+  .filter-actions {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    
+    button {
+      min-width: 120px;
+    }
+  }
+}
+
+.search-section {
+  margin-bottom: 20px;
+}
+
+.search-field {
+  width: 100%;
+  max-width: 400px;
+}
+
+// Empty State
+.empty-state {
+  text-align: center;
+  padding: 60px 20px;
+  
+  .empty-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+    
+    .empty-icon {
+      font-size: 64px;
+      color: #ccc;
+      margin-bottom: 16px;
+    }
+    
+    h3 {
+      margin: 0;
+      color: #666;
+    }
+    
+    p {
+      margin: 0;
+      color: #999;
+    }
+  }
+}
+
+.table-container {
+  background: white;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+table {
+  width: 100%;
+}
+
+.low-stock {
+  color: #f44336;
+  font-weight: bold;
+}
+
+.mat-mdc-row:hover {
+  background-color: rgba(102, 126, 234, 0.05);
+}
+
+.mat-mdc-header-cell {
+  font-weight: 600;
+  color: #667eea;
+}
+
+.mat-mdc-cell {
+  button {
+    margin-right: 8px;
+    transition: all 0.2s ease-in-out;
+    
+    &:hover {
+      transform: scale(1.1);
+    }
+    
+    &[color="accent"] {
+      background-color: rgba(102, 126, 234, 0.1);
+      border-color: rgba(102, 126, 234, 0.3);
+      
+      &:hover {
+        background-color: rgba(102, 126, 234, 0.2);
+      }
+    }
+    
+    &[color="warn"] {
+      background-color: rgba(233, 69, 96, 0.1);
+      border-color: rgba(233, 69, 96, 0.3);
+      
+      &:hover {
+        background-color: rgba(233, 69, 96, 0.2);
+      }
+    }
+  }
+}

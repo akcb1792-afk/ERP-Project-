@@ -1,0 +1,231 @@
+<div class="container">
+  <div class="header">
+    <h2>Purchase Orders</h2>
+    <button mat-raised-button color="primary" routerLink="/purchase/add">
+      <mat-icon>add</mat-icon>
+      Add New Purchase
+    </button>
+  </div>
+
+  <div class="content">
+    <!-- Search and Filter Section -->
+    <mat-card class="filter-card">
+      <mat-card-header>
+        <mat-card-title>Search & Filter Orders</mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <form [formGroup]="filterForm" class="filter-form">
+          <div class="filter-row">
+            <!-- Order ID Filter -->
+            <mat-form-field appearance="outline">
+              <mat-label>Order ID</mat-label>
+              <input matInput placeholder="Enter Order ID" formControlName="orderId">
+              <mat-icon matSuffix>search</mat-icon>
+            </mat-form-field>
+
+            <!-- Vendor Filter -->
+            <mat-form-field appearance="outline">
+              <mat-label>Vendor</mat-label>
+              <mat-select formControlName="vendorId">
+                <mat-option value="">All Vendors</mat-option>
+                <mat-option *ngFor="let vendor of vendors" [value]="vendor.id">
+                  {{ vendor.name }}
+                </mat-option>
+              </mat-select>
+            </mat-form-field>
+
+            <!-- Date Range Filter -->
+            <mat-form-field appearance="outline">
+              <mat-label>From Date</mat-label>
+              <input matInput [matDatepicker]="fromPicker" formControlName="fromDate">
+              <mat-datepicker-toggle matSuffix [for]="fromPicker"></mat-datepicker-toggle>
+              <mat-datepicker #fromPicker></mat-datepicker>
+            </mat-form-field>
+
+            <mat-form-field appearance="outline">
+              <mat-label>To Date</mat-label>
+              <input matInput [matDatepicker]="toPicker" formControlName="toDate">
+              <mat-datepicker-toggle matSuffix [for]="toPicker"></mat-datepicker-toggle>
+              <mat-datepicker #toPicker></mat-datepicker>
+            </mat-form-field>
+          </div>
+
+          <div class="filter-row">
+            <!-- Amount Range Filter -->
+            <mat-form-field appearance="outline">
+              <mat-label>Min Amount</mat-label>
+              <input matInput type="number" placeholder="0.00" formControlName="minAmount">
+            </mat-form-field>
+
+            <mat-form-field appearance="outline">
+              <mat-label>Max Amount</mat-label>
+              <input matInput type="number" placeholder="999999.99" formControlName="maxAmount">
+            </mat-form-field>
+
+            <!-- Filter Actions -->
+            <div class="filter-actions">
+              <button mat-raised-button color="primary" (click)="applyFilters()">
+                <mat-icon>filter_list</mat-icon>
+                Apply Filters
+              </button>
+              <button mat-stroked-button color="accent" (click)="clearFilters()">
+                <mat-icon>clear</mat-icon>
+                Clear
+              </button>
+            </div>
+          </div>
+        </form>
+      </mat-card-content>
+    </mat-card>
+
+    <mat-card class="list-card" *ngIf="filteredPurchases.length > 0; else noPurchases">
+      <mat-card-header>
+        <mat-card-title>Completed Purchase Orders</mat-card-title>
+        <mat-card-subtitle>{{ filteredPurchases.length }} of {{ purchases.length }} purchase orders found</mat-card-subtitle>
+      </mat-card-header>
+      <mat-card-content>
+        <div class="table-container">
+          <table mat-table [dataSource]="dataSource">
+            <!-- ID Column -->
+            <ng-container matColumnDef="id">
+              <th mat-header-cell *matHeaderCellDef>Purchase ID</th>
+              <td mat-cell *matCellDef="let purchase">
+                <strong>#{{ purchase.id }}</strong>
+              </td>
+            </ng-container>
+
+            <!-- Date Column -->
+            <ng-container matColumnDef="createdDate">
+              <th mat-header-cell *matHeaderCellDef>Date</th>
+              <td mat-cell *matCellDef="let purchase">{{ purchase.createdDate }}</td>
+            </ng-container>
+
+            <!-- Vendor Column -->
+            <ng-container matColumnDef="vendorName">
+              <th mat-header-cell *matHeaderCellDef>Vendor</th>
+              <td mat-cell *matCellDef="let purchase">{{ purchase.vendorName || 'Not specified' }}</td>
+            </ng-container>
+
+            <!-- Item Name Column -->
+            <ng-container matColumnDef="itemName">
+              <th mat-header-cell *matHeaderCellDef>Item Name</th>
+              <td mat-cell *matCellDef="let purchase">{{ purchase.itemName }}</td>
+            </ng-container>
+
+            <!-- Item Count Column -->
+            <ng-container matColumnDef="itemCount">
+              <th mat-header-cell *matHeaderCellDef>Items</th>
+              <td mat-cell *matCellDef="let purchase">{{ purchase.itemCount }}</td>
+            </ng-container>
+
+            <!-- Total Amount Column -->
+            <ng-container matColumnDef="totalAmount">
+              <th mat-header-cell *matHeaderCellDef>Total Amount</th>
+              <td mat-cell *matCellDef="let purchase">
+                <span class="amount">{{ purchase.totalAmount | number:'1.2-2' }}</span>
+              </td>
+            </ng-container>
+
+            <!-- Status Column -->
+            <ng-container matColumnDef="status">
+              <th mat-header-cell *matHeaderCellDef>Status</th>
+              <td mat-cell *matCellDef="let purchase">
+                <span class="status-badge completed">{{ purchase.status }}</span>
+              </td>
+            </ng-container>
+
+            <!-- Actions Column -->
+            <ng-container matColumnDef="actions">
+              <th mat-header-cell *matHeaderCellDef>Actions</th>
+              <td mat-cell *matCellDef="let purchase">
+                <button mat-raised-button color="primary" (click)="viewBill(purchase)" [disabled]="!purchase.items || purchase.items.length === 0">
+                  <mat-icon>receipt</mat-icon>
+                  View Bill
+                </button>
+              </td>
+            </ng-container>
+
+            <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+            <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+          </table>
+        </div>
+      </mat-card-content>
+    </mat-card>
+  </div>
+
+  <!-- No Purchases Template -->
+  <ng-template #noPurchases>
+    <mat-card class="empty-card">
+      <mat-card-content class="empty-content">
+        <mat-icon class="empty-icon">shopping_cart</mat-icon>
+        <h3>No Purchase Orders Found</h3>
+        <p>You haven't created any purchase orders yet. Start by adding your first purchase.</p>
+        <button mat-raised-button color="primary" routerLink="/purchase/add">
+          <mat-icon>add</mat-icon>
+          Create First Purchase
+        </button>
+      </mat-card-content>
+    </mat-card>
+  </ng-template>
+</div>
+
+<!-- Purchase Bill Details Modal -->
+<div class="modal-overlay" *ngIf="showDetailsModal" (click)="closeDetailsModal()">
+  <div class="modal-container bill-modal" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h3>Purchase Bill Details</h3>
+      <button mat-icon-button (click)="closeDetailsModal()">
+        <mat-icon>close</mat-icon>
+      </button>
+    </div>
+    
+    <div class="modal-content" *ngIf="selectedPurchase">
+      <!-- Bill Header -->
+      <div class="bill-header">
+        <div class="bill-info">
+          <h4>Purchase ID: #{{ selectedPurchase.id }}</h4>
+          <p>Date: {{ selectedPurchase.createdDate }}</p>
+          <p>Status: <span class="status-badge completed">{{ selectedPurchase.status }}</span></p>
+        </div>
+        <div class="bill-total">
+          <h3>Total: {{ selectedPurchase.totalAmount | number:'1.2-2' }}</h3>
+        </div>
+      </div>
+
+      <!-- Items Table -->
+      <div class="bill-items">
+        <h4>Items Purchased</h4>
+        <table class="items-table">
+          <thead>
+            <tr>
+              <th>Item Name</th>
+              <th>Quantity</th>
+              <th>Unit Price</th>
+              <th>Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let item of selectedPurchase.items">
+              <td>{{ getItemNames([item]) }}</td>
+              <td>{{ item.quantity }}</td>
+              <td>{{ item.purchasePrice | number:'1.2-2' }}</td>
+              <td>{{ calculateItemTotal(item.quantity, item.purchasePrice) | number:'1.2-2' }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    
+    <div class="modal-actions">
+      <button mat-raised-button color="primary" (click)="printBill()">
+        <mat-icon>print</mat-icon>
+        Print
+      </button>
+      <button mat-button color="accent" (click)="printBillFallback()">
+        <mat-icon>description</mat-icon>
+        Print Here
+      </button>
+      <button mat-button (click)="closeDetailsModal()">Close</button>
+    </div>
+  </div>
+</div>

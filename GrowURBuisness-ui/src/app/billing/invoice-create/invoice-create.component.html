@@ -1,0 +1,190 @@
+<div class="container">
+  <div class="header">
+    <h2>{{ title }}</h2>
+    <button mat-raised-button color="accent" routerLink="/billing/list">
+      <mat-icon>list</mat-icon>
+      View Sales
+    </button>
+  </div>
+
+  <div class="form-container">
+    <mat-card class="form-card">
+      <mat-card-header>
+        <mat-card-title>Create Sales Invoice</mat-card-title>
+        <button mat-icon-button type="button" (click)="resetBill()">
+          <mat-icon>refresh</mat-icon>
+        </button>
+      </mat-card-header>
+      <mat-card-content>
+        <form [formGroup]="billForm" (ngSubmit)="addItemToList()">
+          <!-- Customer Selection Section -->
+          <div class="form-row">
+            <mat-form-field appearance="outline">
+              <mat-label>Select Customer</mat-label>
+              <mat-select formControlName="customerId" (selectionChange)="onCustomerChange()">
+                <mat-option value="">-- Select Customer --</mat-option>
+                <mat-option *ngFor="let customer of customers" [value]="customer.id">
+                  {{ customer.name }} ({{ customer.customerType }})
+                </mat-option>
+              </mat-select>
+            </mat-form-field>
+          </div>
+
+          <!-- Item Selection Section -->
+          <div class="form-row">
+            <mat-form-field appearance="outline">
+              <mat-label>Select Item</mat-label>
+              <mat-select formControlName="itemId" (selectionChange)="onItemChange()" required>
+                <mat-option value="">-- Select Item --</mat-option>
+                <mat-option *ngFor="let item of availableItems" [value]="item.id">
+                  {{ item.name }} - Stock: {{ item.stock }} - Purchase Price: {{ formatCurrency(item.price) }}
+                </mat-option>
+              </mat-select>
+            </mat-form-field>
+          </div>
+
+          <!-- Quantity Section -->
+          <div class="form-row">
+            <mat-form-field appearance="outline">
+              <mat-label>Quantity</mat-label>
+              <input matInput type="number" formControlName="quantity" min="1" required>
+            </mat-form-field>
+          </div>
+
+          <!-- Purchase Price (ReadOnly) -->
+          <div class="form-row" *ngIf="selectedItem && billForm.get('quantity')?.value > 0">
+            <mat-form-field appearance="outline">
+              <mat-label>Purchase Price</mat-label>
+              <input matInput type="number" [value]="selectedItem?.price ?? 0" readonly>
+            </mat-form-field>
+          </div>
+
+          <!-- Sale Price (Editable) -->
+          <div class="form-row" *ngIf="selectedItem && billForm.get('quantity')?.value > 0">
+            <mat-form-field appearance="outline">
+              <mat-label>Sale Price</mat-label>
+              <input matInput type="number" formControlName="salePrice" min="0.01" step="0.01">
+              <mat-error *ngIf="billForm.get('salePrice')?.hasError('required')">Sale price is required</mat-error>
+            </mat-form-field>
+          </div>
+
+          <!-- Profit Calculation -->
+          <div class="form-row" *ngIf="selectedItem && billForm.get('salePrice')?.value > 0 && billForm.get('quantity')?.value > 0">
+            <div class="profit-info">
+              <p><strong>Profit per item:</strong> {{ formatCurrency(calculateProfitPerItem()) }}</p>
+              <p><strong>Total Profit:</strong> {{ formatCurrency(calculateTotalProfit()) }}</p>
+              <p><strong>Total Sale Price:</strong> {{ formatCurrency(calculateTotalSalePrice()) }}</p>
+            </div>
+          </div>
+
+          <!-- Add to List Button -->
+          <div class="form-row">
+            <button mat-raised-button color="primary" type="button" (click)="addItemToList()" [disabled]="isLoading || !billForm.valid">
+              <mat-icon>add</mat-icon>
+              Add to List
+            </button>
+          </div>
+        </form>
+      </mat-card-content>
+    </mat-card>
+  </div>
+
+  <!-- Sales Items List -->
+  <div class="list-container" *ngIf="billItems.length > 0">
+    <mat-card class="list-card">
+      <mat-card-header>
+        <mat-card-title>Sales Items</mat-card-title>
+        <mat-card-subtitle>Total: {{ formatCurrency(totalAmount) }} | Profit: {{ formatCurrency(calculateBillProfit()) }}</mat-card-subtitle>
+      </mat-card-header>
+      <mat-card-content>
+        <div class="table-container">
+          <table mat-table [dataSource]="dataSource">
+            <ng-container matColumnDef="itemName">
+              <th mat-header-cell *matHeaderCellDef>Item Name</th>
+              <td mat-cell *matCellDef="let item">{{ item.name }}</td>
+            </ng-container>
+            
+            <ng-container matColumnDef="quantity">
+              <th mat-header-cell *matHeaderCellDef>Quantity</th>
+              <td mat-cell *matCellDef="let item">{{ item.quantity }}</td>
+            </ng-container>
+            
+            <ng-container matColumnDef="purchasePrice">
+              <th mat-header-cell *matHeaderCellDef>Purchase Price</th>
+              <td mat-cell *matCellDef="let item">{{ formatCurrency(item.purchasePrice) }}</td>
+            </ng-container>
+            
+            <ng-container matColumnDef="salePrice">
+              <th mat-header-cell *matHeaderCellDef>Sale Price</th>
+              <td mat-cell *matCellDef="let item">{{ formatCurrency(item.salePrice) }}</td>
+            </ng-container>
+            
+            <ng-container matColumnDef="total">
+              <th mat-header-cell *matHeaderCellDef>Total</th>
+              <td mat-cell *matCellDef="let item">{{ formatCurrency(item.total) }}</td>
+            </ng-container>
+            
+            <ng-container matColumnDef="profit">
+              <th mat-header-cell *matHeaderCellDef>Profit</th>
+              <td mat-cell *matCellDef="let item">{{ formatCurrency(item.profit) }}</td>
+            </ng-container>
+            
+            <ng-container matColumnDef="actions">
+              <th mat-header-cell *matHeaderCellDef>Actions</th>
+              <td mat-cell *matCellDef="let item; let i = index">
+                <button mat-icon-button color="warn" (click)="removeItem(item)">
+                  <mat-icon>remove</mat-icon>
+                </button>
+              </td>
+            </ng-container>
+            
+            <tr mat-header-row *matHeaderRowDef="['itemName', 'quantity', 'purchasePrice', 'salePrice', 'total', 'profit', 'actions']"></tr>
+            <tr mat-row *matRowDef="let row; columns: ['itemName', 'quantity', 'purchasePrice', 'salePrice', 'total', 'profit', 'actions'];"></tr>
+          </table>
+        </div>
+      </mat-card-content>
+    </mat-card>
+  </div>
+
+  <!-- Submit Sales Section -->
+  <div class="submit-section" *ngIf="billItems.length > 0">
+    <mat-card class="submit-card">
+      <mat-card-content>
+        <div class="submit-actions">
+          <div class="payment-section">
+            <mat-form-field appearance="outline">
+              <mat-label>Payment Type</mat-label>
+              <mat-select [(value)]="selectedPaymentType">
+                <mat-option *ngFor="let type of paymentTypes" [value]="type">
+                  {{ type }}
+                </mat-option>
+              </mat-select>
+            </mat-form-field>
+          </div>
+          
+          <div class="total-amount">
+            <h3>Total Amount: {{ formatCurrency(totalAmount) }}</h3>
+            <p>Total Profit: {{ formatCurrency(calculateBillProfit()) }}</p>
+          </div>
+          
+          <div class="button-group">
+            <button mat-stroked-button (click)="resetBill()">
+              <mat-icon>refresh</mat-icon>
+              Clear Bill
+            </button>
+            <button mat-raised-button color="primary" (click)="submitBill()" [disabled]="isLoading">
+              <mat-icon>receipt</mat-icon>
+              Create Invoice
+              <mat-icon *ngIf="isLoading" class="spinner">refresh</mat-icon>
+            </button>
+            <button mat-raised-button color="accent" (click)="submitBillWithPrint()" [disabled]="isLoading">
+              <mat-icon>print</mat-icon>
+              Create Invoice with Print
+              <mat-icon *ngIf="isLoading" class="spinner">refresh</mat-icon>
+            </button>
+          </div>
+        </div>
+      </mat-card-content>
+    </mat-card>
+  </div>
+</div>

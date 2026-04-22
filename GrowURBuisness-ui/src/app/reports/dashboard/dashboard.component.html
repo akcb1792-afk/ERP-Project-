@@ -1,0 +1,30 @@
+<div class="container">
+  <h2>{{ title }}</h2>
+
+  <div class="reports-grid">
+    <mat-card class="report-card clickable-card" (click)="navigateToSalesReport()">
+      <mat-card-header>
+        <mat-card-title>Sales Report</mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <div class="report-content">
+          <mat-icon class="report-icon">receipt_long</mat-icon>
+          <span class="report-description">View detailed sales analytics and reports</span>
+        </div>
+      </mat-card-content>
+    </mat-card>
+
+    <mat-card class="report-card clickable-card" (click)="navigateToPurchaseReport()">
+      <mat-card-header>
+        <mat-card-title>Purchase Report</mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <div class="report-content">
+          <mat-icon class="report-icon">shopping_cart</mat-icon>
+          <span class="report-description">View detailed purchase analytics and reports</span>
+        </div>
+      </mat-card-content>
+    </mat-card>
+  </div>
+
+</div>

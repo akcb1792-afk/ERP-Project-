@@ -1,0 +1,46 @@
+<div class="container">
+  <div class="header">
+    <h2>{{ title }}</h2>
+    <button mat-button routerLink="/inventory">
+      <mat-icon>arrow_back</mat-icon>
+      Back to Items
+    </button>
+  </div>
+
+  <mat-card class="form-card">
+    <mat-card-content>
+      <form class="item-form">
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Item Name</mat-label>
+          <input matInput [(ngModel)]="itemForm.name" name="name" placeholder="Enter item name" required>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Category</mat-label>
+          <mat-select [(ngModel)]="itemForm.categoryId" name="categoryId">
+            <mat-option *ngFor="let category of categories" [value]="category.id">
+              {{ category.name }}
+            </mat-option>
+          </mat-select>
+        </mat-form-field>
+
+        <div class="row">
+          <mat-form-field appearance="outline" class="half-width">
+            <mat-label>Price</mat-label>
+            <input matInput type="number" [(ngModel)]="itemForm.price" name="price" min="0" step="0.01" required>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="half-width">
+            <mat-label>Stock Quantity</mat-label>
+            <input matInput type="number" [(ngModel)]="itemForm.stockQuantity" name="stockQuantity" min="0" required>
+          </mat-form-field>
+        </div>
+      </form>
+    </mat-card-content>
+
+    <mat-card-actions align="end">
+      <button mat-button (click)="onCancel()">Cancel</button>
+      <button mat-raised-button color="primary" (click)="onSubmit()">Create Item</button>
+    </mat-card-actions>
+  </mat-card>
+</div>
