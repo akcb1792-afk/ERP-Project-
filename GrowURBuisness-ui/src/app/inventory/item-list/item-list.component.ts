@@ -2,7 +2,7 @@ import { Component, OnInit } from '@angular/core';
 import { FormBuilder, FormGroup } from '@angular/forms';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatDialog } from '@angular/material/dialog';
-import { DatabaseService } from '../../services/database.service';
+import { InventoryService } from '../../services/inventory.service';
 import { ConfirmDialogComponent } from '../../shared/confirm-dialog/confirm-dialog.component';
 
 @Component({
@@ -23,7 +23,7 @@ export class ItemListComponent implements OnInit {
   categories: string[] = [];
 
   constructor(
-    private databaseService: DatabaseService,
+    private inventoryService: InventoryService,
     private snackBar: MatSnackBar,
     private dialog: MatDialog,
     private fb: FormBuilder
@@ -37,7 +37,7 @@ export class ItemListComponent implements OnInit {
   }
 
   ngOnInit() {
-    this.databaseService.getInventoryItems().subscribe(items => {
+    this.inventoryService.getItems().subscribe(items => {
       this.items = items;
       this.categories = this.extractCategories(items);
       this.filteredItems = [...items];
@@ -58,41 +58,38 @@ export class ItemListComponent implements OnInit {
   applyFilters(): void {
     const filters = this.filterForm.value;
     
-    this.databaseService.getInventoryItems().subscribe(items => {
-      this.filteredItems = items.filter(item => {
-        // Item name filter
-        if (filters.itemName && !item.name.toLowerCase().includes(filters.itemName.toLowerCase())) {
-          return false;
-        }
-        
-        // Category filter
-        if (filters.category && item.category !== filters.category) {
-          return false;
-        }
-        
-        // Stock quantity filter
-        const stockQuantity = item.stock || item.stockQuantity || 0;
-        if (filters.stockFilter) {
-          switch (filters.stockFilter) {
-            case 'instock':
-              return stockQuantity > 0;
-            case 'outofstock':
-              return stockQuantity === 0;
-            case 'lowstock':
-              return stockQuantity <= 10;
-            default:
-              return true;
-          }
-        }
-        
-        // Quantity filter
-        if (filters.quantity && stockQuantity < parseInt(filters.quantity)) {
-          return false;
-        }
-        
-        return true;
-      });
+    this.filteredItems = this.items.filter(item => {
+      // Item name filter
+      if (filters.itemName && !item.name.toLowerCase().includes(filters.itemName.toLowerCase())) {
+        return false;
+      }
       
+      // Category filter
+      if (filters.category && item.category !== filters.category) {
+        return false;
+      }
+      
+      // Stock quantity filter
+      const stockQuantity = item.stock || item.stockQuantity || 0;
+      if (filters.stockFilter) {
+        switch (filters.stockFilter) {
+          case 'instock':
+            return stockQuantity > 0;
+          case 'outofstock':
+            return stockQuantity === 0;
+          case 'lowstock':
+            return stockQuantity <= 10;
+          default:
+            return true;
+        }
+      }
+      
+      // Quantity filter
+      if (filters.quantity && stockQuantity < parseInt(filters.quantity)) {
+        return false;
+      }
+      
+      return true;
       this.calculateSummaryData(this.filteredItems);
     });
   }
@@ -103,10 +100,8 @@ export class ItemListComponent implements OnInit {
       category: '',
       stockFilter: ''
     });
-    this.databaseService.getInventoryItems().subscribe(items => {
-      this.filteredItems = [...items];
-      this.calculateSummaryData(this.filteredItems);
-    });
+    this.filteredItems = [...this.items];
+    this.calculateSummaryData(this.filteredItems);
   }
 
   calculateSummaryData(items: any[]): void {

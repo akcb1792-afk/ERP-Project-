@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
+import { environment } from '../../environments/environment';
 
 export interface Item {
   id: number;
@@ -41,7 +42,7 @@ export interface InvoiceResponse {
   providedIn: 'root'
 })
 export class BillingService {
-  private apiUrl = 'https://localhost:7001/api'; // Update with your API URL
+  private apiUrl = environment.apiUrl;
 
   constructor(private http: HttpClient) { }
 
@@ -55,5 +56,17 @@ export class BillingService {
 
   createInvoice(request: CreateInvoiceRequest): Observable<InvoiceResponse> {
     return this.http.post<InvoiceResponse>(`${this.apiUrl}/billing/create`, request);
+  }
+
+  getInvoices(): Observable<any[]> {
+    return this.http.get<any[]>(`${this.apiUrl}/billing/invoices`);
+  }
+
+  getCustomers(): Observable<any[]> {
+    return this.http.get<any[]>(`${this.apiUrl}/customers`);
+  }
+
+  deleteInvoice(invoiceId: number): Observable<void> {
+    return this.http.delete<void>(`${this.apiUrl}/billing/invoices/${invoiceId}`);
   }
 }

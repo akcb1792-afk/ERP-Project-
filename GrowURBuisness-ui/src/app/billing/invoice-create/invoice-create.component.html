@@ -37,7 +37,7 @@
               <mat-select formControlName="itemId" (selectionChange)="onItemChange()" required>
                 <mat-option value="">-- Select Item --</mat-option>
                 <mat-option *ngFor="let item of availableItems" [value]="item.id">
-                  {{ item.name }} - Stock: {{ item.stock }} - Purchase Price: {{ formatCurrency(item.price) }}
+                  {{ item.name }} - Stock: {{ item.stockQuantity || 0 }} - Purchase Price: {{ formatCurrency(item.price) }}
                 </mat-option>
               </mat-select>
             </mat-form-field>

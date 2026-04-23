@@ -12,147 +12,141 @@
       <mat-spinner></mat-spinner>
       <p>Loading dashboard data...</p>
     </div>
-
+    
     <!-- Error State -->
     <div *ngIf="error && !isLoading" class="error-container">
       <mat-icon class="error-icon">error</mat-icon>
       <p>{{ error }}</p>
       <button mat-raised-button color="primary" (click)="refreshData()">Retry</button>
     </div>
-
+    
     <!-- Dashboard Content -->
     <div *ngIf="!isLoading && !error">
-      <div class="stats-single-row">
-        <!-- Today's Metrics -->
+      <!-- Stats Overview -->
+      <div class="stats-grid">
         <mat-card class="stats-card">
           <mat-card-header>
-            <mat-card-title>Today's Sales</mat-card-title>
+            <mat-card-title>Total Orders</mat-card-title>
           </mat-card-header>
           <mat-card-content>
-            <div class="stats-value">{{ todaySales | number:'1.2-2' }}</div>
+            <div class="stats-value">{{ stats.totalOrders }}</div>
           </mat-card-content>
         </mat-card>
-
+        
         <mat-card class="stats-card">
           <mat-card-header>
-            <mat-card-title>Today's Purchase</mat-card-title>
+            <mat-card-title>Total Customers</mat-card-title>
           </mat-card-header>
           <mat-card-content>
-            <div class="stats-value">{{ todayPurchase | number:'1.2-2' }}</div>
+            <div class="stats-value">{{ stats.totalCustomers }}</div>
           </mat-card-content>
         </mat-card>
-
-        <!-- Monthly Metrics -->
+        
         <mat-card class="stats-card">
           <mat-card-header>
-            <mat-card-title>Monthly Sales</mat-card-title>
+            <mat-card-title>Total Items</mat-card-title>
           </mat-card-header>
           <mat-card-content>
-            <div class="stats-value">{{ monthlySales | number:'1.2-2' }}</div>
+            <div class="stats-value">{{ stats.inventoryCount }}</div>
           </mat-card-content>
         </mat-card>
-
+        
         <mat-card class="stats-card">
           <mat-card-header>
-            <mat-card-title>Monthly Purchase</mat-card-title>
+            <mat-card-title>Total Revenue</mat-card-title>
           </mat-card-header>
           <mat-card-content>
-            <div class="stats-value">{{ monthlyPurchase | number:'1.2-2' }}</div>
+            <div class="stats-value">${{ stats.totalRevenue | number:'1.2-2' }}</div>
           </mat-card-content>
         </mat-card>
-
-        <!-- Low Stock Alert -->
+        
         <mat-card class="stats-card">
           <mat-card-header>
             <mat-card-title>Low Stock Items</mat-card-title>
           </mat-card-header>
           <mat-card-content>
-            <div class="stats-value">{{ lowStockItemsCount }}</div>
+            <div class="stats-value">{{ stats.lowStockItems }}</div>
           </mat-card-content>
         </mat-card>
       </div>
-
-      <div class="reports-grid">
-        <!-- Purchase Orders Section -->
-        <mat-card class="report-card">
-          <mat-card-header>
-            <mat-card-title>Purchase Orders</mat-card-title>
-            <mat-card-subtitle>{{ purchaseOrders.length }} orders</mat-card-subtitle>
-          </mat-card-header>
-          <mat-card-content>
-            <div class="report-list">
-              <div *ngFor="let order of purchaseOrders.slice(0, 10)" class="report-item">
-                <div class="report-main">
-                  <span class="report-title">PO #{{ order.id }}</span>
-                  <span class="report-amount">{{ order.totalAmount | number:'1.2-2' }}</span>
+      
+      <!-- Recent Activity -->
+      <div class="activity-section">
+        <div class="activity-row">
+          <!-- Recent Invoices -->
+          <div class="activity-column">
+            <mat-card>
+              <mat-card-header>
+                <mat-card-title>Recent Invoices</mat-card-title>
+              </mat-card-header>
+              <mat-card-content>
+                <div *ngIf="recentInvoices.length === 0" class="empty-state">
+                  <p>No recent invoices</p>
                 </div>
-                <div class="report-details">
-                  <span class="report-customer">{{ order.vendorName }}</span>
-                  <span class="report-items">{{ order.itemCount }} items</span>
-                  <span class="report-quantity">{{ order.totalQuantity }} qty</span>
-                  <span class="report-date">{{ order.createdDate | date:'short' }}</span>
+                <div *ngFor="let invoice of recentInvoices" class="report-item">
+                  <div class="report-header">
+                    <span class="report-id">#{{ invoice.id }}</span>
+                    <span class="report-customer">{{ invoice.customer }}</span>
+                  </div>
+                  <div class="report-details">
+                    <span class="report-amount">${{ invoice.amount | number:'1.2-2' }}</span>
+                    <span class="report-date">{{ invoice.date | date:'short' }}</span>
+                    <span class="report-status" [ngClass]="invoice.status.toLowerCase()">{{ invoice.status }}</span>
+                  </div>
                 </div>
-              </div>
-              <div *ngIf="purchaseOrders.length === 0" class="empty-state">
-                <p>No purchase orders found</p>
-              </div>
-            </div>
-          </mat-card-content>
-        </mat-card>
-
-        <!-- Sales Orders Section -->
-        <mat-card class="report-card">
-          <mat-card-header>
-            <mat-card-title>Sales Orders</mat-card-title>
-            <mat-card-subtitle>{{ salesOrders.length }} orders</mat-card-subtitle>
-          </mat-card-header>
-          <mat-card-content>
-            <div class="report-list">
-              <div *ngFor="let order of salesOrders.slice(0, 10)" class="report-item">
-                <div class="report-main">
-                  <span class="report-title">SO #{{ order.id }}</span>
-                  <span class="report-amount">{{ order.totalAmount | number:'1.2-2' }}</span>
+              </mat-card-content>
+            </mat-card>
+          </div>
+          
+          <!-- Recent Orders -->
+          <div class="activity-column">
+            <mat-card>
+              <mat-card-header>
+                <mat-card-title>Recent Orders</mat-card-title>
+              </mat-card-header>
+              <mat-card-content>
+                <div *ngIf="recentOrders.length === 0" class="empty-state">
+                  <p>No recent orders</p>
                 </div>
-                <div class="report-details">
-                  <span class="report-customer">{{ order.customerName }}</span>
-                  <span class="report-items">{{ order.itemCount }} items</span>
-                  <span class="report-quantity">{{ order.totalQuantity }} qty</span>
-                  <span class="report-date">{{ order.createdDate | date:'short' }}</span>
+                <div *ngFor="let order of recentOrders" class="report-item">
+                  <div class="report-header">
+                    <span class="report-id">{{ order.id }}</span>
+                    <span class="report-customer">{{ order.customer }}</span>
+                  </div>
+                  <div class="report-details">
+                    <span class="report-amount">${{ order.amount | number:'1.2-2' }}</span>
+                    <span class="report-date">{{ order.date | date:'short' }}</span>
+                    <span class="report-status" [ngClass]="order.status.toLowerCase()">{{ order.status }}</span>
+                  </div>
                 </div>
-              </div>
-              <div *ngIf="salesOrders.length === 0" class="empty-state">
-                <p>No sales orders found</p>
-              </div>
-            </div>
-          </mat-card-content>
-        </mat-card>
-
-        <!-- Low Stock Items Section -->
-        <mat-card class="report-card">
-          <mat-card-header>
-            <mat-card-title>Low Stock Items</mat-card-title>
-            <mat-card-subtitle>{{ lowStockItems.length }} items need restocking</mat-card-subtitle>
-          </mat-card-header>
-          <mat-card-content>
-            <div class="report-list">
-              <div *ngFor="let item of lowStockItems.slice(0, 10)" class="report-item">
-                <div class="report-main">
-                  <span class="report-title">{{ item.name }}</span>
-                  <span class="report-amount">{{ item.price | number:'1.2-2' }}</span>
-                </div>
-                <div class="report-details">
-                  <span class="report-customer">{{ item.category }}</span>
-                  <span class="report-items">Stock: {{ item.stock || item.stockQuantity || 0 }}</span>
-                  <span class="report-status low-stock">Low Stock</span>
-                  <span class="report-date">{{ item.createdDate | date:'short' }}</span>
-                </div>
-              </div>
+              </mat-card-content>
+            </mat-card>
+          </div>
+        </div>
+        
+        <!-- Low Stock Items -->
+        <div class="low-stock-section">
+          <mat-card>
+            <mat-card-header>
+              <mat-card-title>Low Stock Items</mat-card-title>
+            </mat-card-header>
+            <mat-card-content>
               <div *ngIf="lowStockItems.length === 0" class="empty-state">
-                <p>No low stock items found</p>
+                <p>No low stock items</p>
               </div>
-            </div>
-          </mat-card-content>
-        </mat-card>
+              <div *ngFor="let item of lowStockItems" class="report-item">
+                <div class="report-header">
+                  <span class="report-name">{{ item.name }}</span>
+                  <span class="report-category">{{ item.category }}</span>
+                </div>
+                <div class="report-details">
+                  <span class="report-stock">Stock: {{ item.stock }}</span>
+                  <span class="report-price">${{ item.price | number:'1.2-2' }}</span>
+                </div>
+              </div>
+            </mat-card-content>
+          </mat-card>
+        </div>
       </div>
     </div>
   </div>

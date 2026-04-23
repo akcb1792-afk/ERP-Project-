@@ -1,6 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { MatSnackBar } from '@angular/material/snack-bar';
-import { DatabaseService } from '../../services/database.service';
+import { CustomerService } from '../../services/customer.service';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
 
 @Component({
@@ -21,7 +21,7 @@ export class CustomerListComponent implements OnInit {
 
   constructor(
     private snackBar: MatSnackBar,
-    private databaseService: DatabaseService,
+    private customerService: CustomerService,
     private fb: FormBuilder
   ) {
     this.editForm = this.fb.group({
@@ -45,7 +45,7 @@ export class CustomerListComponent implements OnInit {
 
   loadCustomers(): void {
     this.isLoading = true;
-    this.databaseService.getCustomers().subscribe(customers => {
+    this.customerService.getCustomers().subscribe(customers => {
       this.customers = customers.map(customer => ({
         ...customer,
         status: customer.status || 'active', // Set default status to active if not present
@@ -83,21 +83,31 @@ export class CustomerListComponent implements OnInit {
     };
 
     // Update customer in the database service
-    this.databaseService.updateCustomer(updatedData);
-
-    // Update customer in the local array for immediate UI update
-    const index = this.customers.findIndex(c => c.id === this.editingCustomer.id);
-    if (index > -1) {
-      this.customers[index] = updatedData;
-    }
-
-    this.snackBar.open(`${updatedData.name} updated successfully!`, 'Success', {
-      duration: 3000,
-      horizontalPosition: 'right',
-      verticalPosition: 'top'
+    this.customerService.updateCustomer(this.editingCustomer.id, updatedData).subscribe({
+      next: () => {
+        // Update customer in the local array for immediate UI update
+        const index = this.customers.findIndex(c => c.id === this.editingCustomer.id);
+        if (index > -1) {
+          this.customers[index] = updatedData;
+        }
+        
+        this.snackBar.open(`${updatedData.name} updated successfully!`, 'Success', {
+          duration: 3000,
+          horizontalPosition: 'right',
+          verticalPosition: 'top'
+        });
+        
+        this.cancelEdit();
+      },
+      error: (error) => {
+        console.error('Error updating customer:', error);
+        this.snackBar.open('Failed to update customer', 'Error', {
+          duration: 3000,
+          horizontalPosition: 'right',
+          verticalPosition: 'top'
+        });
+      }
     });
-
-    this.cancelEdit();
   }
 
   cancelEdit(): void {
@@ -111,7 +121,24 @@ export class CustomerListComponent implements OnInit {
       customer.status = 'inactive';
       
       // Update customer in database service
-      this.databaseService.updateCustomer(customer);
+      this.customerService.updateCustomer(customer.id, customer).subscribe({
+        next: () => {
+          this.snackBar.open(`${customer.name} deactivated successfully!`, 'Success', {
+            duration: 3000,
+            horizontalPosition: 'right',
+            verticalPosition: 'top'
+          });
+          this.loadCustomers();
+        },
+        error: (error) => {
+          console.error('Error deactivating customer:', error);
+          this.snackBar.open('Failed to deactivate customer', 'Error', {
+            duration: 3000,
+            horizontalPosition: 'right',
+            verticalPosition: 'top'
+          });
+        }
+      });
       
       // Update in local array
       const index = this.customers.findIndex(c => c.id === customer.id);
@@ -133,13 +160,24 @@ export class CustomerListComponent implements OnInit {
     } else {
       customer.status = 'active';
       // Update customer in database service
-      this.databaseService.updateCustomer(customer);
-      
-      // Update in local array
-      const index = this.customers.findIndex(c => c.id === customer.id);
-      if (index > -1) {
-        this.customers[index] = customer;
-      }
+      this.customerService.updateCustomer(customer.id, customer).subscribe({
+        next: () => {
+          this.snackBar.open(`${customer.name} activated successfully!`, 'Success', {
+            duration: 3000,
+            horizontalPosition: 'right',
+            verticalPosition: 'top'
+          });
+          this.loadCustomers();
+        },
+        error: (error) => {
+          console.error('Error activating customer:', error);
+          this.snackBar.open('Failed to activate customer', 'Error', {
+            duration: 3000,
+            horizontalPosition: 'right',
+            verticalPosition: 'top'
+          });
+        }
+      });
       
       this.snackBar.open(`${customer.name} activated successfully`, 'Activated', {
         duration: 3000,

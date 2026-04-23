@@ -1,7 +1,7 @@
 import { Component } from '@angular/core';
 import { Router } from '@angular/router';
 import { MatSnackBar } from '@angular/material/snack-bar';
-import { DatabaseService } from '../../services/database.service';
+import { InventoryService } from '../../services/inventory.service';
 
 @Component({
   selector: 'app-item-create',
@@ -10,22 +10,32 @@ import { DatabaseService } from '../../services/database.service';
 })
 export class ItemCreateComponent {
   title = 'Create New Item';
-
-  categories = [
-    { id: 1, name: 'Electronics' },
-    { id: 2, name: 'Hardware' },
-    { id: 3, name: 'Software' },
-    { id: 4, name: 'Accessories' }
-  ];
+  categories: any[] = [];
 
   constructor(
-    private databaseService: DatabaseService,
+    private inventoryService: InventoryService,
     private router: Router,
     private snackBar: MatSnackBar
   ) {}
 
   ngOnInit() {
-    // No edit functionality for now
+    this.loadCategories();
+  }
+
+  loadCategories(): void {
+    this.inventoryService.getCategories().subscribe({
+      next: (categories) => {
+        this.categories = categories;
+      },
+      error: (error) => {
+        console.error('Error loading categories:', error);
+        this.snackBar.open('Failed to load categories', 'Error', {
+          duration: 3000,
+          horizontalPosition: 'right',
+          verticalPosition: 'top'
+        });
+      }
+    });
   }
 
   itemForm = {
@@ -48,23 +58,31 @@ export class ItemCreateComponent {
     const category = this.categories.find(c => c.id === this.itemForm.categoryId);
     const item = {
       name: this.itemForm.name,
-      category: category ? category.name : 'Unknown',
+      categoryId: this.itemForm.categoryId,
       price: this.itemForm.price,
-      stock: this.itemForm.stockQuantity
+      stockQuantity: this.itemForm.stockQuantity,
+      minimumStock: 10 // Default minimum stock
     };
 
-    // Create new item (edit functionality removed for now)
-    this.databaseService.addInventoryItem(item);
-    
-    this.snackBar.open('Item created successfully!', 'Success', {
-      duration: 3000,
-      horizontalPosition: 'right',
-      verticalPosition: 'top'
+    // Create new item using API
+    this.inventoryService.addItem(item).subscribe({
+      next: () => {
+        this.snackBar.open('Item created successfully!', 'Success', {
+          duration: 3000,
+          horizontalPosition: 'right',
+          verticalPosition: 'top'
+        });
+        this.router.navigate(['/inventory']);
+      },
+      error: (error: any) => {
+        console.error('Error creating item:', error);
+        this.snackBar.open('Failed to create item', 'Error', {
+          duration: 3000,
+          horizontalPosition: 'right',
+          verticalPosition: 'top'
+        });
+      }
     });
-
-    // Clear any edit data
-    localStorage.removeItem('editItem');
-    this.router.navigate(['/inventory']);
   }
 
   onCancel() {

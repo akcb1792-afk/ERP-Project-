@@ -17,12 +17,7 @@ export class SalesReportEnhancedComponent implements OnInit {
   totalSales: number = 0;
   totalInvoices: number = 0;
 
-  // Mock customers data - in real app, this would come from API
-  customers = [
-    { id: '1', name: 'John Doe' },
-    { id: '2', name: 'Jane Smith' },
-    { id: '3', name: 'Bob Johnson' }
-  ];
+  customers: any[] = [];
 
   constructor(private fb: FormBuilder, private reportsService: ReportsService) {
     this.filterForm = this.fb.group({

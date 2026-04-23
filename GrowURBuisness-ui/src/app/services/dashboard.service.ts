@@ -55,14 +55,42 @@ export interface LowStockItem {
 export class DashboardService {
   private apiUrl = environment.apiUrl;
 
-  constructor(private http: HttpClient) {}
+  constructor(private http: HttpClient) { }
 
-  async getDashboardStats(): Promise<DashboardStats> {
-    const stats = await this.calculateStats().toPromise();
-    const orders = await this.getPurchaseOrders().toPromise();
-    const invoices = await this.getSalesOrders().toPromise();
-    const recentInvoices = await this.getRecentInvoices().toPromise();
-    const lowStockItems = await this.getLowStockItems().toPromise();
+  // Get dashboard statistics from API
+  getDashboardStats(): Observable<DashboardStats> {
+    return this.http.get<DashboardStats>(`${this.apiUrl}/dashboard/stats`);
+  }
+
+  // Get recent invoices from API
+  getRecentInvoices(): Observable<RecentInvoice[]> {
+    return this.http.get<RecentInvoice[]>(`${this.apiUrl}/dashboard/recent-invoices`);
+  }
+
+  // Get recent orders from API
+  getRecentOrders(): Observable<RecentOrder[]> {
+    return this.http.get<RecentOrder[]>(`${this.apiUrl}/dashboard/recent-orders`);
+  }
+
+  // Get low stock items from API
+  getLowStockItems(): Observable<LowStockItem[]> {
+    return this.http.get<LowStockItem[]>(`${this.apiUrl}/dashboard/low-stock`);
+  }
+
+  // Get complete dashboard data
+  getDashboardData(): Observable<any> {
+    return forkJoin({
+      stats: this.getDashboardStats(),
+      recentInvoices: this.getRecentInvoices(),
+      recentOrders: this.getRecentOrders(),
+      lowStockItems: this.getLowStockItems()
+    });
+  }
+
+  async getDashboardStatsData(): Promise<DashboardStats> {
+    const stats = await this.getDashboardStats().toPromise();
+    const orders = await this.http.get<any[]>(`${this.apiUrl}/purchase-orders`).toPromise();
+    const invoices = await this.http.get<any[]>(`${this.apiUrl}/sales-orders`).toPromise();
 
     const statsData = stats || {
       totalOrders: 0,
@@ -113,48 +141,9 @@ export class DashboardService {
     return this.http.get<any[]>(`${this.apiUrl}/sales-orders`);
   }
 
-  getRecentInvoices(): Observable<any[]> {
-    return this.http.get<any[]>(`${this.apiUrl}/recent-invoices`);
-  }
-
-  getRecentOrders(): Observable<any[]> {
-    return this.http.get<any[]>(`${this.apiUrl}/recent-orders`);
-  }
-
-  getLowStockItems(): Observable<any[]> {
-    return this.http.get<any[]>(`${this.apiUrl}/low-stock-items`);
-  }
-
   // Dashboard Summary API
   async getDashboardSummary(): Promise<any> {
     return this.http.get<any>(`${this.apiUrl}/dashboard-summary`).toPromise();
-  }
-
-  private calculateStats(): Observable<DashboardStats> {
-    // Return mock data for now - in real app, this would calculate from actual data
-    return new Observable(observer => {
-      const stats: DashboardStats = {
-        totalOrders: 342,
-        totalQuantitySold: 1250,
-        totalPurchase: 8750.50,
-        todaysTotal: 1250.75,
-        inventoryCount: 150,
-        totalAmount: 25550.75,
-        totalCustomers: 45,
-        totalInvoices: 234,
-        totalRevenue: 25550.75,
-        totalSalesQuantity: 1250,
-        totalPurchaseQuantity: 800,
-        totalSalesValue: 25550.75,
-        totalPurchaseValue: 8750.50,
-        profit: 16800.25,
-        lowStockItems: 12,
-        pendingInvoices: 5
-      };
-      
-      observer.next(stats);
-      observer.complete();
-    });
   }
 
 }
