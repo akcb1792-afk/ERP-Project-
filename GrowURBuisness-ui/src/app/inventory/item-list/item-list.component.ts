@@ -35,11 +35,21 @@ export class ItemListComponent implements OnInit {
   }
 
   ngOnInit() {
+    this.loadItems();
+    this.loadCategories();
+  }
+
+  loadItems() {
     this.inventoryService.getItems().subscribe(items => {
       this.items = items;
-      this.categories = this.extractCategories(items);
       this.filteredItems = [...items];
       this.calculateSummaryData(this.filteredItems);
+    });
+  }
+
+  loadCategories() {
+    this.inventoryService.getCategories().subscribe(categories => {
+      this.categories = categories.map(cat => cat.name);
     });
   }
 
@@ -63,7 +73,7 @@ export class ItemListComponent implements OnInit {
       }
       
       // Category filter
-      if (filters.category && item.category !== filters.category) {
+      if (filters.category && item.categoryName !== filters.category) {
         return false;
       }
       

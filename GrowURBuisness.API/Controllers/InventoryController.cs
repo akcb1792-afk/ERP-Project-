@@ -18,12 +18,28 @@ namespace GrowURBuisness.API.Controllers
 
         // GET: api/inventory/items
         [HttpGet("items")]
-        public async Task<ActionResult<IEnumerable<Item>>> GetItems()
+        public async Task<ActionResult<IEnumerable<object>>> GetItems()
         {
             try
             {
                 var items = await _context.Items
+                    .Include(i => i.Category)
                     .Where(i => i.IsActive)
+                    .Select(i => new
+                    {
+                        i.Id,
+                        i.Name,
+                        i.Description,
+                        i.CategoryId,
+                        CategoryName = i.Category != null ? i.Category.Name : "",
+                        i.Price,
+                        i.StockQuantity,
+                        i.MinimumStock,
+                        i.Unit,
+                        i.CreatedDate,
+                        i.LastModifiedDate,
+                        i.IsActive
+                    })
                     .ToListAsync();
 
                 return Ok(items);
