@@ -1,5 +1,6 @@
 import { Component, OnInit } from '@angular/core';
-import { ReportsService } from '../../services/reports.service';
+import { HttpClient } from '@angular/common/http';
+import { environment } from '../../../environments/environment';
 
 @Component({
   selector: 'app-inventory-report',
@@ -13,7 +14,7 @@ export class InventoryReportComponent implements OnInit {
   error: string | null = null;
   lowStockThreshold: number = 10;
 
-  constructor(private reportsService: ReportsService) {}
+  constructor(private http: HttpClient) {}
 
   ngOnInit() {
     this.loadInventoryReport();
@@ -25,10 +26,10 @@ export class InventoryReportComponent implements OnInit {
     this.isLoading = true;
     this.error = null;
     
-    this.reportsService.getInventoryReport().subscribe({
-      next: (data) => {
-        this.inventoryData = data;
-        this.filteredInventoryData = data;
+    this.http.get<any[]>(`${environment.apiUrl}/inventory/items`).subscribe({
+      next: (items) => {
+        this.inventoryData = items;
+        this.filteredInventoryData = items;
         this.isLoading = false;
       },
       error: (error: any) => {
@@ -39,7 +40,7 @@ export class InventoryReportComponent implements OnInit {
   }
 
   getLowStockItems(): any[] {
-    return this.inventoryData.filter(item => 
+    return this.filteredInventoryData.filter(item => 
       (item.stockQuantity || item.stock || 0) <= this.lowStockThreshold
     );
   }

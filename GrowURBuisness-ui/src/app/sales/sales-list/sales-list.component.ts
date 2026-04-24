@@ -2,7 +2,8 @@ import { Component, OnInit } from '@angular/core';
 import { FormBuilder, FormGroup } from '@angular/forms';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatTableDataSource } from '@angular/material/table';
-import { DatabaseService } from '../../services/database.service';
+import { HttpClient } from '@angular/common/http';
+import { environment } from '../../../environments/environment';
 
 @Component({
   selector: 'app-sales-list',
@@ -21,7 +22,7 @@ export class SalesListComponent implements OnInit {
   constructor(
     private fb: FormBuilder,
     private snackBar: MatSnackBar,
-    private databaseService: DatabaseService
+    private http: HttpClient
   ) {
     this.dataSource = new MatTableDataSource<any>();
     this.filterForm = this.fb.group({
@@ -52,58 +53,48 @@ export class SalesListComponent implements OnInit {
 
   loadSalesInvoices(): void {
     this.isLoading = true;
-    this.databaseService.getSales().subscribe((sales: any[]) => {
-      console.log('Sales List - Sales invoices loaded:', sales.length); // Debug log
-      console.log('Sales List - Sales data:', sales); // Debug log
-      
-      // Process sales data to ensure customer names are included
-      this.sales = sales.map(sale => {
-        const customer = this.customers.find(c => c.id === sale.customerId);
-        return {
-          ...sale,
-          customerName: customer ? customer.name : 'Walk-in Customer'
-        };
-      });
-      
-      console.log('Sales List - Processed sales data:', this.sales); // Debug log
-      this.filteredSales = this.sales;
-      this.dataSource.data = this.filteredSales;
-      this.isLoading = false;
-    }, error => {
-      console.error('Error loading sales:', error);
-      this.isLoading = false;
+    this.http.get<any[]>(`${environment.apiUrl}/dashboard/invoices`).subscribe({
+      next: (invoices) => {
+        console.log('Sales List - Sales invoices loaded:', invoices.length); // Debug log
+        console.log('Sales List - Sales data:', invoices); // Debug log
+        
+        // Process sales data to ensure customer names are included
+        this.sales = invoices.map(invoice => {
+          const customer = this.customers.find(c => c.id === invoice.customerId);
+          return {
+            ...invoice,
+            customerName: customer ? customer.name : 'Walk-in Customer'
+          };
+        });
+        
+        console.log('Sales List - Processed sales data:', this.sales); // Debug log
+        this.filteredSales = this.sales;
+        this.dataSource.data = this.filteredSales;
+        this.isLoading = false;
+      },
+      error: (error) => {
+        console.error('Error loading sales:', error);
+        this.isLoading = false;
+      }
     });
   }
 
   loadCustomers(): void {
     console.log('Sales List - Loading customers...'); // Debug log
-    this.databaseService.getCustomersByType('Customer').subscribe((customers: any[]) => {
-      this.customers = customers;
+    this.http.get<any[]>(`${environment.apiUrl}/dashboard/customers`).subscribe((customers: any[]) => {
+      this.customers = customers.filter((customer: any) => customer.customerType === 'Customer');
       console.log('Sales List - Customers loaded:', customers.length); // Debug log
       console.log('Sales List - Customers data:', customers); // Debug log
-    }, error => {
-      console.error('Sales List - Error loading customers:', error); // Debug log
+    }, (error: any) => {
+      console.error('Error loading customers:', error);
+      this.isLoading = false;
     });
   }
 
   // Method to create sample data for testing
   createTestData(): void {
-    const sampleSale = {
-      customerId: null,
-      customerName: 'Test Customer',
-      paymentType: 'Cash',
-      items: [
-        {
-          itemId: 1,
-          quantity: 2,
-          price: 150
-        }
-      ],
-      createdDate: new Date().toISOString(),
-      status: 'Completed'
-    };
-    this.databaseService.addSale(sampleSale);
-    this.loadSalesInvoices();
+    // This method is deprecated - use actual API calls for testing
+    console.log('Test data creation disabled - use real API data');
   }
 
   calculateInvoiceTotal(invoice: any): number {

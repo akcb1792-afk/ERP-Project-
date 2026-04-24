@@ -2,7 +2,8 @@ import { Component, OnInit } from '@angular/core';
 import { FormBuilder, FormGroup } from '@angular/forms';
 import { MatTableDataSource } from '@angular/material/table';
 import { MatSnackBar } from '@angular/material/snack-bar';
-import { DatabaseService } from '../../services/database.service';
+import { HttpClient } from '@angular/common/http';
+import { environment } from '../../../environments/environment';
 
 @Component({
   selector: 'app-purchase-list',
@@ -21,7 +22,7 @@ export class PurchaseListComponent implements OnInit {
   filterForm!: FormGroup;
 
   constructor(
-    private databaseService: DatabaseService,
+    private http: HttpClient,
     private snackBar: MatSnackBar,
     private formBuilder: FormBuilder
   ) {
@@ -45,29 +46,53 @@ export class PurchaseListComponent implements OnInit {
 
   loadPurchases(): void {
     this.isLoading = true;
-    this.databaseService.getPurchases().subscribe(purchases => {
-      this.purchases = purchases;
-      this.filteredPurchases = purchases;
-      this.dataSource.data = this.filteredPurchases.map(purchase => {
-        // Find vendor name
-        const vendor = this.vendors.find(v => v.id === purchase.customerId);
-        return {
-          ...purchase,
-          vendorName: vendor ? vendor.name : 'Not specified',
-          itemCount: this.calculateTotalQuantity(purchase.items || []),
-          totalAmount: this.calculateTotal(purchase.items || []),
-          createdDate: new Date(purchase.createdDate).toLocaleDateString(),
-          itemName: this.getItemNames(purchase.items || [])
-        };
-      });
-      this.isLoading = false;
+    this.http.get<any[]>(`${environment.apiUrl}/Purchase`).subscribe({
+      next: (purchases: any[]) => {
+        this.purchases = purchases;
+        this.filteredPurchases = purchases;
+        this.dataSource.data = this.filteredPurchases.map(purchase => {
+          // Find vendor name
+          const vendor = this.vendors.find(v => v.id === purchase.vendorId);
+          return {
+            ...purchase,
+            vendorName: vendor ? vendor.name : 'Not specified',
+            itemCount: this.calculateTotalQuantity(purchase.purchaseOrderItems || []),
+            totalAmount: purchase.totalAmount,
+            createdDate: new Date(purchase.createdDate).toLocaleDateString(),
+            itemName: this.getItemNames(purchase.purchaseOrderItems || []),
+            items: purchase.purchaseOrderItems || [] // Add items array for view bill functionality
+          };
+        });
+        this.isLoading = false;
+      },
+      error: (error: any) => {
+        console.error('Error loading purchases:', error);
+        this.snackBar.open('Failed to load purchases', 'Error', {
+          duration: 3000,
+          horizontalPosition: 'right',
+          verticalPosition: 'top'
+        });
+        this.isLoading = false;
+      }
     });
   }
 
   loadVendors(): void {
-    this.databaseService.getAllCustomersByType('Vendor').subscribe(vendors => {
-      this.vendors = vendors;
-      this.loadPurchases(); // Load purchases after vendors are loaded
+    this.http.get<any[]>(`${environment.apiUrl}/dashboard/customers`).subscribe({
+      next: (customers: any[]) => {
+        this.vendors = customers.filter((customer: any) => customer.CustomerType === 'Vendor');
+        this.loadPurchases(); // Load purchases after vendors are loaded
+      },
+      error: (error: any) => {
+        console.error('Error loading vendors:', error);
+        this.snackBar.open('Failed to load vendors', 'Error', {
+          duration: 3000,
+          horizontalPosition: 'right',
+          verticalPosition: 'top'
+        });
+        // Still try to load purchases even if vendors fail
+        this.loadPurchases();
+      }
     });
   }
 
@@ -84,13 +109,9 @@ export class PurchaseListComponent implements OnInit {
       return 'No items';
     }
     
-    // Get inventory items from localStorage to map itemId to itemName
-    const storedItems = JSON.parse(localStorage.getItem('inventoryItems') || '[]');
-    
     const itemNames = items.map(purchaseItem => {
-      // Find the corresponding inventory item by itemId
-      const inventoryItem = storedItems.find((item: any) => item.id === purchaseItem.itemId);
-      const name = inventoryItem?.name || purchaseItem.itemName || purchaseItem.name || `Item ID: ${purchaseItem.itemId}`;
+      // Get item name from the purchase order item
+      const name = purchaseItem.item?.name || purchaseItem.itemName || purchaseItem.name || `Item ID: ${purchaseItem.itemId}`;
       return name;
     });
     
@@ -171,10 +192,11 @@ export class PurchaseListComponent implements OnInit {
             <div class="bill-info-left">
               <p><strong>Purchase ID:</strong> #${purchase.id}</p>
               <p><strong>Date:</strong> ${purchase.createdDate}</p>
+              <p><strong>Vendor:</strong> ${purchase.vendorName || 'Not specified'}</p>
               <p><strong>Status:</strong> <span class="status-badge">${purchase.status}</span></p>
             </div>
             <div class="bill-info-right">
-              <p><strong>Total Items:</strong> ${this.calculateTotalQuantity(purchase.items || [])}</p>
+              <p><strong>Total Items:</strong> ${(purchase.items || []).length}</p>
             </div>
           </div>
           
@@ -190,12 +212,12 @@ export class PurchaseListComponent implements OnInit {
                 </tr>
               </thead>
               <tbody>
-                ${purchase.items.map((item: any) => `
+                ${(purchase.items || []).map((item: any) => `
                   <tr>
-                    <td>${this.getItemNameForBill(item.itemId)}</td>
-                    <td>${item.quantity}</td>
-                    <td>${item.purchasePrice.toFixed(2)}</td>
-                    <td>${this.calculateItemTotal(item.quantity, item.purchasePrice).toFixed(2)}</td>
+                    <td>${item.item?.name || 'Unknown Item'}</td>
+                    <td>${item.quantity || 0}</td>
+                    <td>${(item.unitPrice || 0).toFixed(2)}</td>
+                    <td>${(item.totalAmount || (item.quantity * item.unitPrice)).toFixed(2)}</td>
                   </tr>
                 `).join('')}
               </tbody>
@@ -231,6 +253,9 @@ export class PurchaseListComponent implements OnInit {
 
   applyFilters(): void {
     const filters = this.filterForm.value;
+    console.log('=== FILTER DEBUG ===');
+    console.log('Filters applied:', filters);
+    console.log('Total purchases before filter:', this.purchases.length);
     
     this.filteredPurchases = this.purchases.filter(purchase => {
       // Order ID filter
@@ -239,7 +264,7 @@ export class PurchaseListComponent implements OnInit {
       }
       
       // Vendor filter
-      if (filters.vendorId && purchase.customerId !== parseInt(filters.vendorId)) {
+      if (filters.vendorId && purchase.vendorId !== parseInt(filters.vendorId)) {
         return false;
       }
       
@@ -271,7 +296,10 @@ export class PurchaseListComponent implements OnInit {
       }
       
       return true;
-    });
+    }));
+    
+    console.log('Filtered purchases count:', this.filteredPurchases.length);
+    console.log('Filtered purchases:', this.filteredPurchases);
     
     // Update the data source
     this.dataSource.data = this.filteredPurchases.map(purchase => ({

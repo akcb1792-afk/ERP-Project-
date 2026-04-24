@@ -1,9 +1,12 @@
 import { Component, OnInit } from '@angular/core';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
-import { Router } from '@angular/router';
-import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatTableDataSource } from '@angular/material/table';
-import { DatabaseService } from '../../services/database.service';
+import { MatSnackBar } from '@angular/material/snack-bar';
+import { Router } from '@angular/router';
+import { HttpClient } from '@angular/common/http';
+import { environment } from '../../../environments/environment';
+import { InventoryService } from '../../services/inventory.service';
+import { CustomerService } from '../../services/customer.service';
 
 @Component({
   selector: 'app-add-stock',
@@ -17,6 +20,7 @@ export class AddStockComponent implements OnInit {
   purchaseItems: any[] = [];
   vendors: any[] = [];
   selectedVendor: any = null;
+  categories: any[] = [];
   dataSource: MatTableDataSource<any>;
   isLoading = false;
   showAddItemModal = false;
@@ -24,9 +28,11 @@ export class AddStockComponent implements OnInit {
 
   constructor(
     private fb: FormBuilder,
-    private databaseService: DatabaseService,
+    private inventoryService: InventoryService,
+    private customerService: CustomerService,
     private router: Router,
-    private snackBar: MatSnackBar
+    private snackBar: MatSnackBar,
+    private http: HttpClient
   ) {
     this.dataSource = new MatTableDataSource<any>();
     
@@ -47,8 +53,8 @@ export class AddStockComponent implements OnInit {
 
   
   loadAvailableItems(): void {
-    this.databaseService.getInventoryItems().subscribe(items => {
-      this.availableItems = items.map(item => ({
+    this.inventoryService.getItems().subscribe((items: any[]) => {
+      this.availableItems = items.map((item: any) => ({
         ...item,
         itemName: item.name
       }));
@@ -69,9 +75,16 @@ export class AddStockComponent implements OnInit {
     }
   }
 
+  loadCategories(): void {
+    this.inventoryService.getCategories().subscribe((categories: any[]) => {
+      this.categories = categories;
+    });
+  }
+
   ngOnInit(): void {
     this.loadAvailableItems();
     this.loadVendors();
+    this.loadCategories();
     
     // Listen to quantity changes for auto-calculation
     this.purchaseForm.get('quantity')?.valueChanges.subscribe(() => {
@@ -90,9 +103,9 @@ export class AddStockComponent implements OnInit {
   }
 
   loadVendors(): void {
-    this.databaseService.getAllCustomersByType('Vendor').subscribe(vendors => {
-      this.vendors = vendors;
-      console.log('All vendors loaded:', vendors); // Debug log
+    this.customerService.getCustomers().subscribe((customers: any[]) => {
+      this.vendors = customers.filter((customer: any) => customer.customerType === 'Vendor');
+      console.log('All vendors loaded:', this.vendors); // Debug log
     });
   }
 
@@ -177,6 +190,20 @@ export class AddStockComponent implements OnInit {
     return this.purchaseItems.reduce((total, item) => total + (item.quantity * item.purchasePrice), 0);
   }
 
+  testApiEndpoint(): void {
+    console.log('Testing API endpoint...');
+    this.http.get(`${environment.apiUrl}/Purchase/test`).subscribe({
+      next: (response: any) => {
+        console.log('API Test Response:', response);
+        this.snackBar.open('API endpoint is working', 'Success', { duration: 2000 });
+      },
+      error: (error: any) => {
+        console.error('API Test Error:', error);
+        this.snackBar.open('API endpoint test failed', 'Error', { duration: 2000 });
+      }
+    });
+  }
+
   onSubmit(): void {
     if (this.purchaseItems.length === 0) {
       this.snackBar.open('Please add at least one item to the purchase list', 'Error', {
@@ -187,60 +214,10 @@ export class AddStockComponent implements OnInit {
       return;
     }
 
-    this.isLoading = true;
-    
-    // Create purchase request
-    const purchaseRequest = {
-      vendorId: this.selectedVendor?.id || null,
-      vendorName: this.selectedVendor?.name || 'Walk-in Vendor',
-      items: this.purchaseItems.map(item => ({
-        itemId: item.itemId,
-        quantity: item.quantity,
-        purchasePrice: item.purchasePrice
-      }))
-    };
-
-    console.log('=== SUBMIT PURCHASE DEBUG ===');
-    console.log('Purchase items before mapping:', this.purchaseItems);
-    console.log('Purchase request being sent to database:', purchaseRequest);
-
-    
-    // Use database service instead of API call
-    try {
-      this.databaseService.addPurchase(purchaseRequest);
-      
-      this.snackBar.open('Purchase created successfully!', 'Success', {
-        duration: 3000,
-        horizontalPosition: 'right',
-        verticalPosition: 'top'
-      });
-      
-      // Reset form and clear items
-      this.purchaseItems = [];
-      this.purchaseForm.patchValue({
-        itemId: '',
-        quantity: '',
-        pricePerQty: '',
-        purchasePrice: ''
-      });
-      
-      // Reload available items to update stock quantities
-      this.loadAvailableItems();
-      
-    } catch (error) {
-      this.snackBar.open('Error creating purchase', 'Error', {
-        duration: 3000,
-        horizontalPosition: 'right',
-        verticalPosition: 'top'
-      });
-    } finally {
-      this.isLoading = false;
-    }
-  }
-
-  onSubmitWithPrint(): void {
-    if (this.purchaseItems.length === 0) {
-      this.snackBar.open('Please add at least one item to the purchase list', 'Error', {
+    // Validate vendor selection
+    const vendorId = this.purchaseForm.get('vendorId')?.value;
+    if (!vendorId) {
+      this.snackBar.open('Please select a vendor', 'Error', {
         duration: 3000,
         horizontalPosition: 'right',
         verticalPosition: 'top'
@@ -248,53 +225,200 @@ export class AddStockComponent implements OnInit {
       return;
     }
 
+    // Validate purchase items
+    if (!this.purchaseItems || this.purchaseItems.length === 0) {
+      this.snackBar.open('Please add items to the purchase', 'Error', {
+        duration: 3000,
+        horizontalPosition: 'right',
+        verticalPosition: 'top'
+      });
+      return;
+    }
+
+    // Validate each item has required properties
+    for (const item of this.purchaseItems) {
+      if (!item.itemId || !item.quantity || !item.purchasePrice) {
+        this.snackBar.open('Invalid item data detected', 'Error', {
+          duration: 3000,
+          horizontalPosition: 'right',
+          verticalPosition: 'top'
+        });
+        return;
+      }
+    }
+
     this.isLoading = true;
     
     // Create purchase request
     const purchaseRequest = {
-      items: this.purchaseItems.map(item => ({
-        itemId: item.itemId,
-        quantity: item.quantity,
-        purchasePrice: item.purchasePrice
+      VendorId: parseInt(this.purchaseForm.get('vendorId')?.value || '0'),
+      Items: this.purchaseItems.map(item => ({
+        ItemId: item.itemId,
+        Quantity: item.quantity,
+        UnitPrice: item.purchasePrice
       }))
     };
 
-    // Use database service to save purchase
-    try {
-      const purchase = this.databaseService.addPurchaseAndReturn(purchaseRequest);
-      
-      this.snackBar.open('Purchase created successfully! Opening print dialog...', 'Success', {
+    console.log('=== SUBMIT PURCHASE DEBUG ===');
+    console.log('Purchase items before mapping:', this.purchaseItems);
+    console.log('Purchase items details:', this.purchaseItems.map(item => ({
+      itemId: item.itemId,
+      itemName: item.itemName,
+      quantity: item.quantity,
+      purchasePrice: item.purchasePrice
+    })));
+    console.log('Purchase request being sent to database:', purchaseRequest);
+    console.log('Request structure:', JSON.stringify(purchaseRequest, null, 2));
+
+    // Call purchase API
+    this.http.post(`${environment.apiUrl}/Purchase`, purchaseRequest).subscribe({
+      next: (response: any) => {
+        this.snackBar.open('Purchase created successfully!', 'Success', {
+          duration: 3000,
+          horizontalPosition: 'right',
+          verticalPosition: 'top'
+        });
+        
+        // Reset form and clear items
+        this.purchaseItems = [];
+        this.purchaseForm.patchValue({
+          itemId: '',
+          quantity: '',
+          pricePerQty: '',
+          purchasePrice: ''
+        });
+        
+        // Reload available items to update stock quantities
+        this.loadAvailableItems();
+        
+        this.isLoading = false;
+      },
+      error: (error: any) => {
+        console.error('=== API ERROR DETAILS ===');
+        console.error('Full error object:', error);
+        console.error('Error status:', error.status);
+        console.error('Error message:', error.message);
+        console.error('Error details:', JSON.stringify(error, null, 2));
+        
+        this.snackBar.open(`Failed to create purchase: ${error.message || 'Unknown error'}`, 'Error', {
+          duration: 3000,
+          horizontalPosition: 'right',
+          verticalPosition: 'top'
+        });
+        this.isLoading = false;
+      }
+    });
+  }
+
+  onSubmitWithPrint(): void {
+    if (this.purchaseItems.length === 0) {
+      this.snackBar.open('Please add at least one item to purchase list', 'Error', {
         duration: 3000,
         horizontalPosition: 'right',
         verticalPosition: 'top'
       });
-      
-      // Reset form and clear items
-      this.purchaseItems = [];
-      this.purchaseForm.patchValue({
-        itemId: '',
-        quantity: '',
-        pricePerQty: '',
-        purchasePrice: ''
-      });
-      
-      // Reload available items to update stock quantities
-      this.loadAvailableItems();
-      
-      // Open print dialog directly
-      setTimeout(() => {
-        this.openBillInNewWindow(purchase);
-      }, 500);
-      
-    } catch (error) {
-      this.snackBar.open('Error creating purchase', 'Error', {
-        duration: 3000,
-        horizontalPosition: 'right',
-        verticalPosition: 'top'
-      });
-    } finally {
-      this.isLoading = false;
+      return;
     }
+
+    // Validate vendor selection
+    const vendorId = this.purchaseForm.get('vendorId')?.value;
+    if (!vendorId) {
+      this.snackBar.open('Please select a vendor', 'Error', {
+        duration: 3000,
+        horizontalPosition: 'right',
+        verticalPosition: 'top'
+      });
+      return;
+    }
+
+    // Validate purchase items
+    if (!this.purchaseItems || this.purchaseItems.length === 0) {
+      this.snackBar.open('Please add items to the purchase', 'Error', {
+        duration: 3000,
+        horizontalPosition: 'right',
+        verticalPosition: 'top'
+      });
+      return;
+    }
+
+    // Validate each item has required properties
+    for (const item of this.purchaseItems) {
+      if (!item.itemId || !item.quantity || !item.purchasePrice) {
+        this.snackBar.open('Invalid item data detected', 'Error', {
+          duration: 3000,
+          horizontalPosition: 'right',
+          verticalPosition: 'top'
+        });
+        return;
+      }
+    }
+
+    this.isLoading = true;
+    
+    // Create purchase request
+    const purchaseRequest = {
+      VendorId: parseInt(this.purchaseForm.get('vendorId')?.value || '0'),
+      Items: this.purchaseItems.map(item => ({
+        ItemId: item.itemId,
+        Quantity: item.quantity,
+        UnitPrice: item.purchasePrice
+      }))
+    };
+
+    console.log('=== SUBMIT PURCHASE WITH PRINT DEBUG ===');
+    console.log('Purchase items before mapping:', this.purchaseItems);
+    console.log('Purchase items details:', this.purchaseItems.map(item => ({
+      itemId: item.itemId,
+      itemName: item.itemName,
+      quantity: item.quantity,
+      purchasePrice: item.purchasePrice
+    })));
+    console.log('Purchase request being sent to database:', purchaseRequest);
+    console.log('Request structure:', JSON.stringify(purchaseRequest, null, 2));
+
+    // Call purchase API
+    this.http.post(`${environment.apiUrl}/Purchase`, purchaseRequest).subscribe({
+      next: (response: any) => {
+        this.snackBar.open('Purchase created successfully! Opening print dialog...', 'Success', {
+          duration: 3000,
+          horizontalPosition: 'right',
+          verticalPosition: 'top'
+        });
+        
+        // Reset form and clear items
+        this.purchaseItems = [];
+        this.purchaseForm.patchValue({
+          itemId: '',
+          quantity: '',
+          pricePerQty: '',
+          purchasePrice: ''
+        });
+        
+        // Reload available items to update stock quantities
+        this.loadAvailableItems();
+        
+        this.isLoading = false;
+        
+        // Open print dialog with actual purchase data
+        setTimeout(() => {
+          this.openBillInNewWindow(response);
+        }, 1000);
+      },
+      error: (error: any) => {
+        console.error('=== API ERROR DETAILS ===');
+        console.error('Full error object:', error);
+        console.error('Error status:', error.status);
+        console.error('Error message:', error.message);
+        console.error('Error details:', error.error);
+        
+        this.snackBar.open('Failed to create purchase order', 'Error', {
+          duration: 3000,
+          horizontalPosition: 'right',
+          verticalPosition: 'top'
+        });
+        this.isLoading = false;
+      }
+    });
   }
 
   openBillInNewWindow(purchase: any): void {
@@ -455,35 +579,45 @@ export class AddStockComponent implements OnInit {
 
     const newItem = {
       name: newItemData.itemName,
-      category: newItemData.category,
+      categoryId: parseInt(newItemData.category),
       price: newItemData.price,
       stockQuantity: 0, // Initial stock is 0 until purchase is made
-      stock: 0
+      minimumStock: 5
     };
 
-    this.databaseService.addInventoryItem(newItem);
+    // Add new item using API
+    this.inventoryService.addItem(newItem).subscribe({
+      next: () => {
+        // Reload available items to include the new item
+        this.loadAvailableItems();
 
-    // Reload available items to include the new item
-    this.loadAvailableItems();
+        // Auto-select the newly added item
+        setTimeout(() => {
+          const latestItem = this.availableItems[this.availableItems.length - 1];
+          if (latestItem) {
+            this.purchaseForm.patchValue({
+              itemId: latestItem.id,
+              pricePerQty: latestItem.price,
+              purchasePrice: latestItem.price
+            });
+          }
+        }, 100);
 
-    // Auto-select the newly added item
-    setTimeout(() => {
-      const latestItem = this.availableItems[this.availableItems.length - 1];
-      if (latestItem) {
-        this.purchaseForm.patchValue({
-          itemId: latestItem.id,
-          pricePerQty: latestItem.price,
-          purchasePrice: latestItem.price
+        this.snackBar.open('New item added successfully!', 'Success', {
+          duration: 3000,
+          horizontalPosition: 'right',
+          verticalPosition: 'top'
+        });
+
+        this.closeAddItemModal();
+      },
+      error: (error) => {
+        this.snackBar.open('Failed to add new item', 'Error', {
+          duration: 3000,
+          horizontalPosition: 'right',
+          verticalPosition: 'top'
         });
       }
-    }, 100);
-
-    this.snackBar.open('New item added successfully!', 'Success', {
-      duration: 3000,
-      horizontalPosition: 'right',
-      verticalPosition: 'top'
     });
-
-    this.closeAddItemModal();
   }
 }

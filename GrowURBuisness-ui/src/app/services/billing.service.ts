@@ -54,8 +54,8 @@ export class BillingService {
     return this.http.get<Item[]>(`${this.apiUrl}/items`);
   }
 
-  createInvoice(request: CreateInvoiceRequest): Observable<InvoiceResponse> {
-    return this.http.post<InvoiceResponse>(`${this.apiUrl}/billing/create`, request);
+  createInvoice(request: CreateInvoiceRequest): Observable<any> {
+    return this.http.post<any>(`${this.apiUrl}/billing/create`, request);
   }
 
   getInvoices(): Observable<any[]> {

@@ -1,6 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { FormBuilder, FormGroup } from '@angular/forms';
-import { ReportsService, SalesReportItem } from '../../services/reports.service';
+import { HttpClient } from '@angular/common/http';
+import { environment } from '../../../environments/environment';
 
 @Component({
   selector: 'app-sales-report',
@@ -10,18 +11,48 @@ import { ReportsService, SalesReportItem } from '../../services/reports.service'
 export class SalesReportComponent implements OnInit {
   title = 'Sales Report';
   
-  salesData = [
-    { date: '2024-01-15', totalSales: 1250.50, invoiceCount: 8 },
-    { date: '2024-01-14', totalSales: 980.25, invoiceCount: 6 },
-    { date: '2024-01-13', totalSales: 1450.75, invoiceCount: 10 }
-  ];
-
+  salesData: any[] = [];
   displayedColumns = ['date', 'totalSales', 'invoiceCount'];
-  
-  totalSales = this.salesData.reduce((sum, item) => sum + item.totalSales, 0);
-  totalInvoices = this.salesData.reduce((sum, item) => sum + item.invoiceCount, 0);
+  isLoading = false;
+  totalSales = 0;
+  totalInvoices = 0;
+
+  constructor(private http: HttpClient) {}
 
   ngOnInit() {
-    // Initialize component
+    this.loadSalesReport();
+  }
+
+  loadSalesReport(): void {
+    this.isLoading = true;
+    this.http.get<any[]>(`${environment.apiUrl}/dashboard/invoices`).subscribe({
+      next: (invoices) => {
+        // Group invoices by date and calculate totals
+        const groupedData = invoices.reduce((acc: any, invoice) => {
+          const date = new Date(invoice.invoiceDate).toLocaleDateString();
+          if (!acc[date]) {
+            acc[date] = { date, totalSales: 0, invoiceCount: 0 };
+          }
+          acc[date].totalSales += invoice.totalAmount || 0;
+          acc[date].invoiceCount += 1;
+          return acc;
+        }, {});
+
+        this.salesData = Object.values(groupedData);
+        
+        // Calculate totals for the template
+        this.totalSales = this.salesData.reduce((sum, item) => sum + (item.totalSales || 0), 0);
+        this.totalInvoices = this.salesData.reduce((sum, item) => sum + (item.invoiceCount || 0), 0);
+        
+        this.isLoading = false;
+      },
+      error: (error: any) => {
+        console.error('Error loading sales report:', error);
+        this.salesData = [];
+        this.totalSales = 0;
+        this.totalInvoices = 0;
+        this.isLoading = false;
+      }
+    });
   }
 }

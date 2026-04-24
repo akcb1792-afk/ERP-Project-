@@ -43,6 +43,6 @@ import { MatDialogModule } from '@angular/material/dialog';
     MatSnackBarModule,
     MatDialogModule
   ],
-  providers: [DatabaseService]
+  providers: []
 })
 export class InventoryModule { }

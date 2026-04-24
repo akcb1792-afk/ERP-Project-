@@ -43,6 +43,6 @@ import { MatDatepickerModule } from '@angular/material/datepicker';
     MatSnackBarModule,
     MatDatepickerModule
   ],
-  providers: [DatabaseService]
+  providers: []
 })
 export class BillingModule { }

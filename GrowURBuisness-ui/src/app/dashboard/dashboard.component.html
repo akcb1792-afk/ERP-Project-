@@ -56,7 +56,7 @@
             <mat-card-title>Total Revenue</mat-card-title>
           </mat-card-header>
           <mat-card-content>
-            <div class="stats-value">${{ stats.totalRevenue | number:'1.2-2' }}</div>
+            <div class="stats-value">{{ stats.totalRevenue | number:'1.2-2' }}</div>
           </mat-card-content>
         </mat-card>
         
@@ -89,7 +89,7 @@
                     <span class="report-customer">{{ invoice.customer }}</span>
                   </div>
                   <div class="report-details">
-                    <span class="report-amount">${{ invoice.amount | number:'1.2-2' }}</span>
+                    <span class="report-amount">{{ invoice.amount | number:'1.2-2' }}</span>
                     <span class="report-date">{{ invoice.date | date:'short' }}</span>
                     <span class="report-status" [ngClass]="invoice.status.toLowerCase()">{{ invoice.status }}</span>
                   </div>
@@ -114,7 +114,7 @@
                     <span class="report-customer">{{ order.customer }}</span>
                   </div>
                   <div class="report-details">
-                    <span class="report-amount">${{ order.amount | number:'1.2-2' }}</span>
+                    <span class="report-amount">{{ order.amount | number:'1.2-2' }}</span>
                     <span class="report-date">{{ order.date | date:'short' }}</span>
                     <span class="report-status" [ngClass]="order.status.toLowerCase()">{{ order.status }}</span>
                   </div>
@@ -141,7 +141,7 @@
                 </div>
                 <div class="report-details">
                   <span class="report-stock">Stock: {{ item.stock }}</span>
-                  <span class="report-price">${{ item.price | number:'1.2-2' }}</span>
+                  <span class="report-price">{{ item.price | number:'1.2-2' }}</span>
                 </div>
               </div>
             </mat-card-content>

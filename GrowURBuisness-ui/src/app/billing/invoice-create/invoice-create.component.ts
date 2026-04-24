@@ -3,6 +3,8 @@ import { FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { Subject, debounceTime, distinctUntilChanged } from 'rxjs';
 import { BillingService } from '../../services/billing.service';
 import { MatTableDataSource } from '@angular/material/table';
+import { HttpClient } from '@angular/common/http';
+import { environment } from '../../../environments/environment';
 
 // Define interfaces locally
 interface Item {
@@ -62,7 +64,8 @@ export class InvoiceCreateComponent implements OnInit {
 
   constructor(
     private fb: FormBuilder,
-    private billingService: BillingService
+    private billingService: BillingService,
+    private http: HttpClient
   ) {
     this.dataSource = new MatTableDataSource<BillItem>(this.billItems);
     this.billForm = this.fb.group({
@@ -454,11 +457,11 @@ export class InvoiceCreateComponent implements OnInit {
         }))
       }).subscribe({
         next: (response) => {
-          if (response.success) {
+          if (response && response.success) {
             alert(`Sales Invoice created successfully!`);
             this.resetBill();
           } else {
-            alert(`Failed to create invoice: ${response.message}`);
+            alert(`Failed to create invoice: ${response?.message || 'Unknown error'}`);
           }
         },
         error: (error) => {
@@ -467,8 +470,6 @@ export class InvoiceCreateComponent implements OnInit {
         }
       });
       
-      alert(`Sales Invoice created successfully!`);
-      this.resetBill();
       this.isLoading = false;
     }, 1000);
   }
@@ -500,23 +501,22 @@ export class InvoiceCreateComponent implements OnInit {
       }))
     };
 
-    // Use API service to save sale and get sale object
+    // Use API service to create purchase order like submit purchase button
     try {
-      this.billingService.createInvoice({
-        customerId: saleData.customerId,
-        paymentType: saleData.paymentType,
-        items: saleData.items.map(item => ({
-          itemId: item.itemId,
-          quantity: item.quantity,
-          price: item.price
+      this.http.post(`${environment.apiUrl}/Purchase`, {
+        VendorId: saleData.customerId,
+        Items: saleData.items.map(item => ({
+          ItemId: item.itemId,
+          Quantity: item.quantity,
+          UnitPrice: item.price
         }))
       }).subscribe({
-        next: (response) => {
-          if (response.success) {
-            alert(`Sales Invoice created successfully! Opening print dialog...`);
+        next: (response: any) => {
+          if (response && response.id) {
+            alert(`Purchase Order created successfully! Opening print dialog...`);
             // Print functionality would go here
           } else {
-            alert(`Failed to create invoice: ${response.message}`);
+            alert(`Failed to create purchase order`);
           }
         },
         error: (error) => {
@@ -624,6 +624,6 @@ export class InvoiceCreateComponent implements OnInit {
   }
 
   formatCurrency(amount: number): string {
-    return `${amount.toFixed(2)}`;
+    return amount.toFixed(2);
   }
 }

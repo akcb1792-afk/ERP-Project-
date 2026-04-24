@@ -167,13 +167,10 @@
         <mat-form-field appearance="outline">
           <mat-label>Category</mat-label>
           <mat-select formControlName="category" required>
-            <mat-option value="Electronics">Electronics</mat-option>
-            <mat-option value="Clothing">Clothing</mat-option>
-            <mat-option value="Food">Food</mat-option>
-            <mat-option value="Beverages">Beverages</mat-option>
-            <mat-option value="Stationery">Stationery</mat-option>
-            <mat-option value="Hardware">Hardware</mat-option>
-            <mat-option value="Other">Other</mat-option>
+            <mat-option value="">-- Select Category --</mat-option>
+            <mat-option *ngFor="let category of categories" [value]="category.id">
+              {{ category.name }}
+            </mat-option>
           </mat-select>
           <mat-error *ngIf="addItemForm.get('category')?.hasError('required')">Category is required</mat-error>
         </mat-form-field>

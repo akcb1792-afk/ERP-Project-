@@ -2,7 +2,7 @@ import { Component, OnInit } from '@angular/core';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
 import { MatSnackBar } from '@angular/material/snack-bar';
-import { DatabaseService } from '../../services/database.service';
+import { CustomerService } from '../../services/customer.service';
 
 @Component({
   selector: 'app-customer-create',
@@ -18,7 +18,7 @@ export class CustomerCreateComponent implements OnInit {
 
   constructor(
     private fb: FormBuilder,
-    private databaseService: DatabaseService,
+    private customerService: CustomerService,
     private router: Router,
     private snackBar: MatSnackBar
   ) {
@@ -47,20 +47,31 @@ export class CustomerCreateComponent implements OnInit {
     
     const customerData = {
       ...this.customerForm.value,
-      id: Date.now(),
       createdDate: new Date().toISOString()
     };
 
-    this.databaseService.addCustomer(customerData);
-    
-    this.snackBar.open('Customer created successfully!', 'Success', {
-      duration: 3000,
-      horizontalPosition: 'right',
-      verticalPosition: 'top'
-    });
+    this.customerService.addCustomer(customerData).subscribe({
+      next: () => {
+        this.snackBar.open('Customer created successfully!', 'Success', {
+          duration: 3000,
+          horizontalPosition: 'right',
+          verticalPosition: 'top'
+        });
 
-    this.customerForm.reset();
-    this.isLoading = false;
+        this.customerForm.reset();
+        this.isLoading = false;
+        this.router.navigate(['/customers/list']);
+      },
+      error: (error) => {
+        console.error('Error creating customer:', error);
+        this.snackBar.open('Failed to create customer', 'Error', {
+          duration: 3000,
+          horizontalPosition: 'right',
+          verticalPosition: 'top'
+        });
+        this.isLoading = false;
+      }
+    });
   }
 
   onCancel(): void {

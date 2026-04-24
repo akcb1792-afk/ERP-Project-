@@ -29,13 +29,27 @@ export class InvoiceListComponent implements OnInit {
       customerId: [''],
       fromDate: [''],
       toDate: [''],
+      minAmount: [''],
+      maxAmount: [''],
+      paymentType: [''],
       status: ['']
     });
+    
+    this.loadInvoices();
+    // Load customers after invoices are loaded to ensure proper customer name mapping
+    setTimeout(() => {
+      this.loadCustomers();
+    }, 100);
   }
 
   ngOnInit(): void {
     this.loadInvoices();
     this.loadCustomers();
+    // Auto-refresh every 30 seconds to show new invoices
+    setInterval(() => {
+      this.loadInvoices();
+      this.loadCustomers();
+    }, 30000);
   }
 
   loadInvoices(): void {
