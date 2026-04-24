@@ -1,8 +1,9 @@
 import { Component, OnInit } from '@angular/core';
 import { FormBuilder, FormGroup } from '@angular/forms';
-import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatTableDataSource } from '@angular/material/table';
+import { MatSnackBar } from '@angular/material/snack-bar';
 import { HttpClient } from '@angular/common/http';
+import { forkJoin } from 'rxjs';
 import { environment } from '../../../environments/environment';
 
 @Component({
@@ -15,7 +16,7 @@ export class SalesListComponent implements OnInit {
   filteredSales: any[] = [];
   customers: any[] = [];
   dataSource: MatTableDataSource<any>;
-  displayedColumns = ['id', 'createdDate', 'customerName', 'itemCount', 'totalAmount', 'paymentType', 'status', 'actions'];
+  displayedColumns = ['invoiceNo', 'createdDate', 'customerName', 'itemCount', 'totalAmount', 'paymentType', 'status', 'actions'];
   isLoading = false;
   filterForm: FormGroup;
 
@@ -53,26 +54,79 @@ export class SalesListComponent implements OnInit {
 
   loadSalesInvoices(): void {
     this.isLoading = true;
-    this.http.get<any[]>(`${environment.apiUrl}/dashboard/invoices`).subscribe({
+    console.log('=== LOADING SALES INVOICES ===');
+    console.log('API URL:', `${environment.apiUrl}/billing/invoices`);
+    
+    this.http.get<any[]>(`${environment.apiUrl}/billing/invoices`).subscribe({
       next: (invoices) => {
+        console.log('=== SALES INVOICES API RESPONSE ===');
         console.log('Sales List - Sales invoices loaded:', invoices.length); // Debug log
-        console.log('Sales List - Sales data:', invoices); // Debug log
+        console.log('Sales List - Raw sales data:', invoices); // Debug log
+        console.log('Sales List - Available customers:', this.customers); // Debug log
         
-        // Process sales data to ensure customer names are included
-        this.sales = invoices.map(invoice => {
-          const customer = this.customers.find(c => c.id === invoice.customerId);
-          return {
-            ...invoice,
-            customerName: customer ? customer.name : 'Walk-in Customer'
-          };
+        // Since main API doesn't include items, fetch detailed data for all invoices
+        console.log('=== FETCHING DETAILED INVOICE DATA FOR ALL INVOICES ===');
+        const detailedInvoices$ = invoices.map((invoice: any) => 
+          this.http.get<any>(`${environment.apiUrl}/billing/invoices/${invoice.id}`)
+        );
+        
+        // Use forkJoin to wait for all detailed invoice requests to complete
+        forkJoin(detailedInvoices$).subscribe({
+          next: (detailedInvoicesArray: any[]) => {
+            console.log('=== ALL DETAILED INVOICES LOADED ===');
+            console.log('Detailed invoices array:', detailedInvoicesArray);
+            
+            // Process sales data with detailed invoice information
+            this.sales = detailedInvoicesArray.map((detailedInvoice: any, index: number) => {
+              console.log(`Processing detailed invoice ${index}:`, detailedInvoice);
+              
+              // Find customer with enhanced lookup
+              const customerId = detailedInvoice.customerId || detailedInvoice.customer_id || detailedInvoice.CustomerId;
+              const customer = this.customers.find((c: any) => {
+                const cId = c.id || c.customerId || c.Id || c.CustomerId;
+                return cId?.toString() === customerId?.toString() || 
+                       cId === customerId ||
+                       parseInt(cId) === parseInt(customerId);
+              });
+              
+              let customerName = 'Unknown Customer';
+              if (customer) {
+                customerName = customer.name || customer.customerName || customer.CustomerName || customer.customer_name || 'Unknown Customer';
+              } else if (detailedInvoice.customerName || detailedInvoice.CustomerName || detailedInvoice.customer_name) {
+                customerName = detailedInvoice.customerName || detailedInvoice.CustomerName || detailedInvoice.customer_name;
+              } else if (detailedInvoice.customer?.name || detailedInvoice.customer?.customerName) {
+                customerName = detailedInvoice.customer?.name || detailedInvoice.customer?.customerName;
+              }
+              
+              // Get items from detailed invoice
+              const items = detailedInvoice.items || detailedInvoice.invoiceItems || detailedInvoice.InvoiceItems || detailedInvoice.itemsList || detailedInvoice.Items || [];
+              console.log(`Detailed invoice ${index} - Items:`, items);
+              
+              // Calculate item count
+              const itemCount = items && Array.isArray(items) ? items.length : 0;
+              console.log(`Detailed invoice ${index} - Item count:`, itemCount);
+              
+              return {
+                ...detailedInvoice,
+                customerName: customerName,
+                items: items,
+                itemCount: itemCount,
+                createdDate: detailedInvoice.createdDate || detailedInvoice.invoiceDate || detailedInvoice.date || new Date().toISOString()
+              };
+            });
+            
+            console.log('Sales List - Final processed sales data with items:', this.sales);
+            this.filteredSales = this.sales;
+            this.dataSource.data = this.filteredSales;
+            this.isLoading = false;
+          },
+          error: (error: any) => {
+            console.error('Error loading detailed invoices:', error);
+            this.isLoading = false;
+          }
         });
-        
-        console.log('Sales List - Processed sales data:', this.sales); // Debug log
-        this.filteredSales = this.sales;
-        this.dataSource.data = this.filteredSales;
-        this.isLoading = false;
       },
-      error: (error) => {
+      error: (error: any) => {
         console.error('Error loading sales:', error);
         this.isLoading = false;
       }
@@ -81,10 +135,39 @@ export class SalesListComponent implements OnInit {
 
   loadCustomers(): void {
     console.log('Sales List - Loading customers...'); // Debug log
-    this.http.get<any[]>(`${environment.apiUrl}/dashboard/customers`).subscribe((customers: any[]) => {
-      this.customers = customers.filter((customer: any) => customer.customerType === 'Customer');
-      console.log('Sales List - Customers loaded:', customers.length); // Debug log
-      console.log('Sales List - Customers data:', customers); // Debug log
+    this.http.get<any[]>(`${environment.apiUrl}/Customer`).subscribe((customers: any[]) => {
+      // Don't filter customers initially - load all and debug
+      this.customers = customers;
+      console.log('Sales List - All customers loaded:', customers.length); // Debug log
+      console.log('Sales List - Raw customers data:', customers); // Debug log
+      
+      // Log each customer structure for debugging
+      customers.forEach((customer: any, index: number) => {
+        console.log(`Customer ${index}:`, {
+          id: customer.id,
+          customerId: customer.customerId,
+          Id: customer.Id,
+          CustomerId: customer.CustomerId,
+          name: customer.name,
+          customerName: customer.customerName,
+          CustomerName: customer.CustomerName,
+          customerType: customer.customerType,
+          type: customer.type
+        });
+      });
+      
+      // Filter for customers only after logging
+      const customerOnly = customers.filter((customer: any) => 
+        customer.customerType === 'Customer' || 
+        customer.type === 'Customer' ||
+        customer.CustomerType === 'Customer' ||
+        customer.Type === 'Customer' ||
+        !customer.customerType && !customer.type // Include if no type specified
+      );
+      console.log('Sales List - Filtered customers:', customerOnly);
+      
+      // Use filtered customers but keep all for debugging
+      this.customers = customerOnly;
     }, (error: any) => {
       console.error('Error loading customers:', error);
       this.isLoading = false;
@@ -97,35 +180,91 @@ export class SalesListComponent implements OnInit {
     console.log('Test data creation disabled - use real API data');
   }
 
+  getItemCount(items: any): number {
+    return (items && Array.isArray(items)) ? items.length : 0;
+  }
+
+  getItemDisplayCount(invoice: any): string {
+    // Use the itemCount from processed data first, then fallback to items length
+    if (invoice.itemCount !== undefined) {
+      console.log(`DISPLAY - Using itemCount: ${invoice.itemCount} for invoice ${invoice.id}`);
+      return invoice.itemCount.toString();
+    }
+    
+    // Fallback to items length
+    const items = invoice.items || invoice.invoiceItems || invoice.InvoiceItems || [];
+    const itemCount = items && Array.isArray(items) ? items.length : 0;
+    console.log(`DISPLAY - Using items length: ${itemCount} for invoice ${invoice.id}`);
+    return itemCount.toString();
+  }
+
   calculateInvoiceTotal(invoice: any): number {
-    if (!invoice.items) return 0;
-    return invoice.items.reduce((total: number, item: any) => total + (item.quantity * item.price), 0);
+    // Try different item field names
+    const items = invoice.items || invoice.invoiceItems || invoice.InvoiceItems || [];
+    
+    if (!Array.isArray(items) || items.length === 0) {
+      // Try alternative data structure or return 0
+      return invoice.totalAmount || invoice.total || 0;
+    }
+    
+    return items.reduce((total: number, item: any) => {
+      const quantity = item.quantity || 0;
+      const price = item.price || item.salePrice || item.unitPrice || 0;
+      return total + (quantity * price);
+    }, 0);
   }
 
   formatDate(dateString: string): string {
-    return new Date(dateString).toLocaleDateString();
+    if (!dateString) return 'N/A';
+    try {
+      const date = new Date(dateString);
+      // Check if date is valid
+      if (isNaN(date.getTime())) {
+        return 'Invalid Date';
+      }
+      return date.toLocaleDateString();
+    } catch (error) {
+      console.error('Date formatting error:', error, 'for date:', dateString);
+      return 'Invalid Date';
+    }
   }
 
+  
   applyFilters(): void {
     const filters = this.filterForm.value;
+    console.log('Applying filters:', filters);
+    console.log('Sales data before filtering:', this.sales);
     
     this.filteredSales = this.sales.filter(invoice => {
-      // Invoice ID filter
-      if (filters.invoiceId && !invoice.id.toString().includes(filters.invoiceId)) {
-        return false;
+      // Invoice Number filter
+      const invoiceNo = invoice.invoiceNo || invoice.invoiceNumber || invoice.InvoiceNo || invoice.InvoiceNumber;
+      if (filters.invoiceId && filters.invoiceId.trim() !== '') {
+        if (!invoiceNo || !invoiceNo.toString().toLowerCase().includes(filters.invoiceId.toLowerCase().trim())) {
+          return false;
+        }
       }
       
       // Customer filter
-      if (filters.customerId && invoice.customerId !== parseInt(filters.customerId)) {
-        return false;
+      if (filters.customerId && filters.customerId !== '') {
+        if (invoice.customerId !== parseInt(filters.customerId)) {
+          return false;
+        }
       }
       
-      // Date range filter
-      if (filters.fromDate && new Date(invoice.createdDate) < new Date(filters.fromDate)) {
-        return false;
+      // Date range filter - improved date handling
+      if (filters.fromDate) {
+        const invoiceDate = new Date(invoice.createdDate);
+        const fromDate = new Date(filters.fromDate);
+        if (!isNaN(invoiceDate.getTime()) && !isNaN(fromDate.getTime()) && invoiceDate < fromDate) {
+          return false;
+        }
       }
-      if (filters.toDate && new Date(invoice.createdDate) > new Date(filters.toDate)) {
-        return false;
+      if (filters.toDate) {
+        const invoiceDate = new Date(invoice.createdDate);
+        const toDate = new Date(filters.toDate);
+        if (!isNaN(invoiceDate.getTime()) && !isNaN(toDate.getTime()) && invoiceDate > toDate) {
+          return false;
+        }
       }
       
       // Amount range filter
@@ -138,13 +277,16 @@ export class SalesListComponent implements OnInit {
       }
       
       // Payment type filter
-      if (filters.paymentType && invoice.paymentType !== filters.paymentType) {
-        return false;
+      if (filters.paymentType && filters.paymentType !== '') {
+        if (invoice.paymentType !== filters.paymentType) {
+          return false;
+        }
       }
       
       return true;
     });
     
+    console.log('Filtered sales data:', this.filteredSales);
     this.dataSource.data = this.filteredSales;
   }
 
@@ -155,7 +297,47 @@ export class SalesListComponent implements OnInit {
   }
 
   viewBill(invoice: any): void { // View bill method
-    this.openBillInNewWindow(invoice);
+    console.log('View Bill clicked - Invoice object:', invoice);
+    console.log('View Bill clicked - Invoice ID:', invoice.id);
+    
+    // Fetch detailed invoice data with items
+    console.log('Fetching detailed invoice from:', `${environment.apiUrl}/billing/invoices/${invoice.id}`);
+    this.http.get<any>(`${environment.apiUrl}/billing/invoices/${invoice.id}`).subscribe({
+      next: (detailedInvoice) => {
+        console.log('=== DETAILED INVOICE DEBUG ===');
+        console.log('Detailed invoice fetched:', detailedInvoice);
+        console.log('Detailed invoice type:', typeof detailedInvoice);
+        console.log('Detailed invoice keys:', Object.keys(detailedInvoice));
+        console.log('Detailed invoice items:', detailedInvoice.items);
+        console.log('Detailed invoice invoiceItems:', detailedInvoice.invoiceItems);
+        console.log('Detailed invoice InvoiceItems:', detailedInvoice.InvoiceItems);
+        console.log('Detailed invoice items type:', typeof detailedInvoice.items);
+        console.log('Detailed invoice items isArray:', Array.isArray(detailedInvoice.items));
+        
+        // Check all possible item fields
+        const allItemFields = ['items', 'invoiceItems', 'InvoiceItems', 'itemsList', 'Items'];
+        allItemFields.forEach(field => {
+          if (detailedInvoice[field]) {
+            console.log(`Found items in field '${field}':`, detailedInvoice[field]);
+            console.log(`Field '${field}' is array:`, Array.isArray(detailedInvoice[field]));
+            console.log(`Field '${field}' length:`, detailedInvoice[field]?.length);
+          }
+        });
+        
+        // Use the detailed invoice data with items
+        this.openBillInNewWindow(detailedInvoice);
+      },
+      error: (error) => {
+        console.error('=== ERROR FETCHING DETAILED INVOICE ===');
+        console.error('Error fetching detailed invoice:', error);
+        console.error('Error status:', error.status);
+        console.error('Error message:', error.message);
+        
+        // Fallback to original invoice data
+        console.log('Using fallback invoice data:', invoice);
+        this.openBillInNewWindow(invoice);
+      }
+    });
   }
 
   openBillInNewWindow(invoice: any): void {
@@ -170,27 +352,62 @@ export class SalesListComponent implements OnInit {
   }
 
   generateBillContent(invoice: any): string {
-    const customer = this.customers.find(c => c.id === invoice.customerId);
-    const customerName = customer ? customer.name : 'Walk-in Customer';
+    console.log('Generating bill for invoice:', invoice); // Debug log
+    
+    // Find customer with enhanced lookup
+    const customer = this.customers.find(c => {
+      const cId = c.id || c.customerId || c.Id || c.CustomerId;
+      const invoiceCustomerId = invoice.customerId || invoice.customer_id || invoice.CustomerId;
+      return cId?.toString() === invoiceCustomerId?.toString() || 
+             cId === invoiceCustomerId ||
+             parseInt(cId) === parseInt(invoiceCustomerId);
+    });
+    
+    const customerName = customer ? (customer.name || customer.customerName || customer.CustomerName) : 'Walk-in Customer';
     const currentDate = new Date().toLocaleDateString();
     
-    let itemsHtml = invoice.items.map((item: any, index: number) => `
-      <tr>
-        <td>${index + 1}</td>
-        <td>${item.name || 'Item'}</td>
-        <td>${item.quantity}</td>
-        <td>${item.price.toFixed(2)}</td>
-        <td>${(item.quantity * item.price).toFixed(2)}</td>
-      </tr>
-    `).join('');
+    // Get invoice number for display
+    const invoiceNo = invoice.invoiceNo || invoice.invoiceNumber || invoice.InvoiceNo || invoice.InvoiceNumber || invoice.id;
+    
+    // Get items with better handling
+    const items = invoice.items || invoice.invoiceItems || invoice.InvoiceItems || [];
+    console.log('Items for bill generation:', items);
+    
+    let itemsHtml = '';
+    if (items && items.length > 0) {
+      itemsHtml = items.map((item: any, index: number) => {
+        const itemName = item.name || item.itemName || item.ItemName || 'Item';
+        const quantity = item.quantity || 0;
+        const price = item.price || item.salePrice || item.unitPrice || 0;
+        
+        return `
+          <tr>
+            <td>${index + 1}</td>
+            <td>${itemName}</td>
+            <td>${quantity}</td>
+            <td>${price.toFixed(2)}</td>
+            <td>${(quantity * price).toFixed(2)}</td>
+          </tr>
+        `;
+      }).join('');
+    } else {
+      itemsHtml = '<tr><td colspan="5" style="text-align: center; color: #999;">No items found</td></tr>';
+    }
 
-    const totalAmount = invoice.items.reduce((total: number, item: any) => total + (item.quantity * item.price), 0);
+    // Calculate total amount
+    const totalAmount = items.reduce((total: number, item: any) => {
+      const quantity = item.quantity || 0;
+      const price = item.price || item.salePrice || item.unitPrice || 0;
+      return total + (quantity * price);
+    }, 0);
+
+    console.log('Generated bill total:', totalAmount);
 
     return `
       <!DOCTYPE html>
       <html>
       <head>
-        <title>Sales Invoice #${invoice.id}</title>
+        <title>Sales Invoice #${invoiceNo}</title>
         <style>
           body { font-family: Arial, sans-serif; margin: 20px; }
           .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #333; padding-bottom: 20px; }
@@ -199,13 +416,16 @@ export class SalesListComponent implements OnInit {
           .invoice-table th, .invoice-table td { border: 1px solid #ddd; padding: 8px; text-align: left; }
           .invoice-table th { background-color: #f2f2f2; font-weight: bold; }
           .total-section { text-align: right; font-weight: bold; margin-top: 20px; }
-          .footer { margin-top: 30px; text-align: center; font-style: italic; }
+          .action-buttons { text-align: center; margin-top: 30px; }
+          .btn { padding: 10px 20px; margin: 0 10px; border: none; border-radius:4px; cursor: pointer; }
+          .print-btn { background-color: #1976d2; color: white; }
+          .close-btn { background-color: #f44336; color: white; }
         </style>
       </head>
       <body>
         <div class="header">
           <h1>SALES INVOICE</h1>
-          <h2>Invoice #${invoice.id}</h2>
+          <h2>Invoice #${invoiceNo}</h2>
         </div>
         
         <div class="invoice-info">
@@ -234,17 +454,9 @@ export class SalesListComponent implements OnInit {
           <p>Total Amount: ${totalAmount.toFixed(2)}</p>
         </div>
         
-        <div class="footer">
-          <p>Thank you for your business!</p>
-          <p>This is a computer-generated invoice</p>
-          
-          <div class="action-buttons" style="margin-top: 30px; text-align: center;">
-            <button onclick="window.print()" style="margin-right: 10px; padding: 10px 20px; background-color: #1976d2; color: white; border: none; border-radius: 4px; cursor: pointer;">
-              <i>Print</i>
-            </button>
-            <button onclick="window.close()" style="padding: 10px 20px; background-color: #f44336; color: white; border: none; border-radius: 4px; cursor: pointer;">
-              <i>Close</i>
-            </button>
+        <div class="action-buttons">
+          <button class="btn print-btn" onclick="window.print()">Print</button>
+          <button class="btn close-btn" onclick="window.close()">Close</button>
           </div>
         </div>
       </body>

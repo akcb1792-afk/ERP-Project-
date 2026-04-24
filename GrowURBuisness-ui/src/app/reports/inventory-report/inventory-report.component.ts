@@ -20,7 +20,7 @@ export class InventoryReportComponent implements OnInit {
     this.loadInventoryReport();
   }
 
-  displayedColumns: string[] = ['name', 'itemCode', 'category', 'stockQuantity', 'purchaseRate', 'saleRate', 'totalValue', 'status'];
+  displayedColumns: string[] = ['name', 'itemCode', 'purchaseRate', 'saleRate', 'totalValue'];
 
   loadInventoryReport(): void {
     this.isLoading = true;
@@ -37,12 +37,6 @@ export class InventoryReportComponent implements OnInit {
         this.isLoading = false;
       }
     });
-  }
-
-  getLowStockItems(): any[] {
-    return this.filteredInventoryData.filter(item => 
-      (item.stockQuantity || item.stock || 0) <= this.lowStockThreshold
-    );
   }
 
   getUniqueCategories(): string[] {
@@ -62,10 +56,6 @@ export class InventoryReportComponent implements OnInit {
     return quantity * rate;
   }
 
-  isLowStock(item: any): boolean {
-    return (item.stockQuantity || item.stock || 0) <= this.lowStockThreshold;
-  }
-
   applyFilter(event: any): void {
     const filterValue = event.target.value.toLowerCase();
     this.filteredInventoryData = this.inventoryData.filter(item => 
@@ -73,6 +63,16 @@ export class InventoryReportComponent implements OnInit {
       item.category.toLowerCase().includes(filterValue) ||
       (item.itemCode && item.itemCode.toLowerCase().includes(filterValue))
     );
+  }
+
+  applyItemFilter(itemName: string): void {
+    if (itemName) {
+      this.filteredInventoryData = this.inventoryData.filter(item => 
+        item.name === itemName
+      );
+    } else {
+      this.filteredInventoryData = this.inventoryData;
+    }
   }
 
   applyCategoryFilter(category: string): void {
@@ -85,31 +85,15 @@ export class InventoryReportComponent implements OnInit {
     }
   }
 
-  applyStockFilter(status: string): void {
-    if (status === 'low') {
-      this.filteredInventoryData = this.inventoryData.filter(item => 
-        this.isLowStock(item)
-      );
-    } else if (status === 'normal') {
-      this.filteredInventoryData = this.inventoryData.filter(item => 
-        !this.isLowStock(item)
-      );
-    } else {
-      this.filteredInventoryData = this.inventoryData;
-    }
-  }
-
   exportToExcel(): void {
     // Create CSV content for Excel export
     const headers = [
       'Item Name',
       'Item Code',
       'Category',
-      'Stock Quantity',
       'Purchase Rate',
       'Sale Rate',
-      'Total Value',
-      'Status'
+      'Total Value'
     ];
 
     const csvContent = [
@@ -122,7 +106,7 @@ export class InventoryReportComponent implements OnInit {
         item.purchaseRate || item.price || 0,
         item.saleRate || (item.price * 1.2) || 0,
         this.getTotalValue(item),
-        `"${this.isLowStock(item) ? 'Low Stock' : 'In Stock'}"`
+        `"In Stock"`
       ].join(','))
     ].join('\n');
 

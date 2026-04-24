@@ -4,6 +4,7 @@ using GrowURBuisness.API.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace GrowURBuisness.API.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260424062612_RemoveVendorForeignKeyAndAddCustomerForeignKey")]
+    partial class RemoveVendorForeignKeyAndAddCustomerForeignKey
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -310,9 +313,14 @@ namespace GrowURBuisness.API.Migrations
                     b.Property<int>("VendorId")
                         .HasColumnType("int");
 
+                    b.Property<int?>("VendorId1")
+                        .HasColumnType("int");
+
                     b.HasKey("Id");
 
                     b.HasIndex("VendorId");
+
+                    b.HasIndex("VendorId1");
 
                     b.ToTable("PurchaseOrders");
                 });
@@ -398,6 +406,45 @@ namespace GrowURBuisness.API.Migrations
                     b.ToTable("StockTransactions");
                 });
 
+            modelBuilder.Entity("GrowURBuisness.API.Models.Vendor", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Address")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Email")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("GSTNumber")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime>("LastModifiedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("Phone")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Vendors");
+                });
+
             modelBuilder.Entity("GrowURBuisness.API.Models.Invoice", b =>
                 {
                     b.HasOne("GrowURBuisness.API.Models.Customer", "Customer")
@@ -446,6 +493,10 @@ namespace GrowURBuisness.API.Migrations
                         .HasForeignKey("VendorId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.HasOne("GrowURBuisness.API.Models.Vendor", null)
+                        .WithMany("PurchaseOrders")
+                        .HasForeignKey("VendorId1");
 
                     b.Navigation("Vendor");
                 });
@@ -509,6 +560,11 @@ namespace GrowURBuisness.API.Migrations
             modelBuilder.Entity("GrowURBuisness.API.Models.PurchaseOrder", b =>
                 {
                     b.Navigation("PurchaseOrderItems");
+                });
+
+            modelBuilder.Entity("GrowURBuisness.API.Models.Vendor", b =>
+                {
+                    b.Navigation("PurchaseOrders");
                 });
 #pragma warning restore 612, 618
         }

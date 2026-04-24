@@ -15,104 +15,55 @@ namespace GrowURBuisness.API.Data
         public DbSet<Customer> Customers { get; set; }
         public DbSet<Invoice> Invoices { get; set; }
         public DbSet<InvoiceItem> InvoiceItems { get; set; }
+        public DbSet<PurchaseOrder> PurchaseOrders { get; set; }
+        public DbSet<PurchaseOrderItem> PurchaseOrderItems { get; set; }
         public DbSet<StockTransaction> StockTransactions { get; set; }
         public DbSet<LedgerEntry> LedgerEntries { get; set; }
-        public DbSet<Purchase> Purchases { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
 
-            // Configure Category
-            modelBuilder.Entity<Category>(entity =>
-            {
-                entity.HasKey(e => e.Id);
-                entity.Property(e => e.Name).IsRequired().HasMaxLength(100);
-                entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETUTCDATE()");
-                entity.Property(e => e.LastModifiedDate).HasDefaultValueSql("GETUTCDATE()");
-            });
+            // Configure relationships
+            modelBuilder.Entity<Item>()
+                .HasOne(i => i.Category)
+                .WithMany(c => c.Items)
+                .HasForeignKey(i => i.CategoryId);
 
-            // Configure Item
-            modelBuilder.Entity<Item>(entity =>
-            {
-                entity.HasKey(e => e.Id);
-                entity.Property(e => e.Name).IsRequired().HasMaxLength(200);
-                entity.Property(e => e.Price).HasPrecision(18, 2);
-                entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETUTCDATE()");
-                entity.Property(e => e.LastModifiedDate).HasDefaultValueSql("GETUTCDATE()");
-                entity.HasOne(e => e.Category)
-                      .WithMany(c => c.Items)
-                      .HasForeignKey(e => e.CategoryId)
-                      .OnDelete(DeleteBehavior.Restrict);
-            });
+            modelBuilder.Entity<Invoice>()
+                .HasOne(i => i.Customer)
+                .WithMany(c => c.Invoices)
+                .HasForeignKey(i => i.CustomerId);
 
-            // Configure Customer
-            modelBuilder.Entity<Customer>(entity =>
-            {
-                entity.HasKey(e => e.Id);
-                entity.Property(e => e.Name).IsRequired().HasMaxLength(200);
-                entity.Property(e => e.Mobile).HasMaxLength(20);
-                entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETUTCDATE()");
-                entity.Property(e => e.LastModifiedDate).HasDefaultValueSql("GETUTCDATE()");
-            });
+            modelBuilder.Entity<InvoiceItem>()
+                .HasOne(ii => ii.Invoice)
+                .WithMany(i => i.InvoiceItems)
+                .HasForeignKey(ii => ii.InvoiceId);
 
-            // Configure Invoice
-            modelBuilder.Entity<Invoice>(entity =>
-            {
-                entity.HasKey(e => e.Id);
-                entity.Property(e => e.TotalAmount).HasPrecision(18, 2);
-                entity.Property(e => e.PaymentType).HasMaxLength(50);
-                entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETUTCDATE()");
-                entity.Property(e => e.LastModifiedDate).HasDefaultValueSql("GETUTCDATE()");
-                entity.HasOne(e => e.Customer)
-                      .WithMany(c => c.Invoices)
-                      .HasForeignKey(e => e.CustomerId)
-                      .OnDelete(DeleteBehavior.Restrict);
-            });
+            modelBuilder.Entity<InvoiceItem>()
+                .HasOne(ii => ii.Item)
+                .WithMany(i => i.InvoiceItems)
+                .HasForeignKey(ii => ii.ItemId);
 
-            // Configure InvoiceItem
-            modelBuilder.Entity<InvoiceItem>(entity =>
-            {
-                entity.HasKey(e => e.Id);
-                entity.Property(e => e.Price).HasPrecision(18, 2);
-                entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETUTCDATE()");
-                entity.Property(e => e.LastModifiedDate).HasDefaultValueSql("GETUTCDATE()");
-                entity.HasOne(e => e.Invoice)
-                      .WithMany(i => i.InvoiceItems)
-                      .HasForeignKey(e => e.InvoiceId)
-                      .OnDelete(DeleteBehavior.Cascade);
-                entity.HasOne(e => e.Item)
-                      .WithMany(i => i.InvoiceItems)
-                      .HasForeignKey(e => e.ItemId)
-                      .OnDelete(DeleteBehavior.Restrict);
-            });
+            modelBuilder.Entity<PurchaseOrder>()
+                .HasOne(po => po.Vendor)
+                .WithMany(v => v.PurchaseOrders)
+                .HasForeignKey(po => po.VendorId);
 
-            // Configure StockTransaction
-            modelBuilder.Entity<StockTransaction>(entity =>
-            {
-                entity.HasKey(e => e.Id);
-                entity.Property(e => e.Type).HasMaxLength(50);
-                entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETUTCDATE()");
-                entity.Property(e => e.LastModifiedDate).HasDefaultValueSql("GETUTCDATE()");
-                entity.HasOne(e => e.Item)
-                      .WithMany(i => i.StockTransactions)
-                      .HasForeignKey(e => e.ItemId)
-                      .OnDelete(DeleteBehavior.Cascade);
-            });
+            modelBuilder.Entity<PurchaseOrderItem>()
+                .HasOne(poi => poi.PurchaseOrder)
+                .WithMany(po => po.PurchaseOrderItems)
+                .HasForeignKey(poi => poi.PurchaseOrderId);
 
-            // Configure LedgerEntry
-            modelBuilder.Entity<LedgerEntry>(entity =>
-            {
-                entity.HasKey(e => e.Id);
-                entity.Property(e => e.Debit).HasPrecision(18, 2);
-                entity.Property(e => e.Credit).HasPrecision(18, 2);
-                entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETUTCDATE()");
-                entity.Property(e => e.LastModifiedDate).HasDefaultValueSql("GETUTCDATE()");
-                entity.HasOne(e => e.Customer)
-                      .WithMany(c => c.LedgerEntries)
-                      .HasForeignKey(e => e.CustomerId)
-                      .OnDelete(DeleteBehavior.Restrict);
-            });
+            modelBuilder.Entity<PurchaseOrderItem>()
+                .HasOne(poi => poi.Item)
+                .WithMany(i => i.PurchaseOrderItems)
+                .HasForeignKey(poi => poi.ItemId);
+
+            modelBuilder.Entity<StockTransaction>()
+                .HasOne(st => st.Item)
+                .WithMany(i => i.StockTransactions)
+                .HasForeignKey(st => st.ItemId);
         }
     }
 }

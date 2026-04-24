@@ -138,3 +138,4 @@ D:\Akash\ERP Shop\GrowURBuisness.API\obj\Debug\net8.0\refint\GrowURBuisness.API.
 D:\Akash\ERP Shop\GrowURBuisness.API\obj\Debug\net8.0\GrowURBuisness.API.pdb
 D:\Akash\ERP Shop\GrowURBuisness.API\obj\Debug\net8.0\GrowURBuisness.API.genruntimeconfig.cache
 D:\Akash\ERP Shop\GrowURBuisness.API\obj\Debug\net8.0\ref\GrowURBuisness.API.dll
+D:\Akash\ERP Shop\GrowURBuisness.API\obj\Debug\net8.0\GrowURBuisness.API.sourcelink.json

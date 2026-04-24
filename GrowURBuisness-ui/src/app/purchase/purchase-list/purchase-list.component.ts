@@ -14,7 +14,7 @@ export class PurchaseListComponent implements OnInit {
   purchases: any[] = [];
   filteredPurchases: any[] = [];
   vendors: any[] = [];
-  displayedColumns = ['id', 'createdDate', 'vendorName', 'itemName', 'itemCount', 'totalAmount', 'status', 'actions'];
+  displayedColumns = ['purchaseId', 'createdDate', 'vendorName', 'itemName', 'itemCount', 'totalAmount', 'status', 'actions'];
   dataSource = new MatTableDataSource<any>();
   isLoading = false;
   showDetailsModal = false;
@@ -35,7 +35,7 @@ export class PurchaseListComponent implements OnInit {
 
   initializeFilterForm(): void {
     this.filterForm = this.formBuilder.group({
-      orderId: [''],
+      purchaseId: [''],
       vendorId: [''],
       fromDate: [''],
       toDate: [''],
@@ -53,14 +53,19 @@ export class PurchaseListComponent implements OnInit {
         this.dataSource.data = this.filteredPurchases.map(purchase => {
           // Find vendor name
           const vendor = this.vendors.find(v => v.id === purchase.vendorId);
+          // Handle empty or invalid purchaseOrderItems
+          const items = (purchase.purchaseOrderItems && Array.isArray(purchase.purchaseOrderItems)) 
+            ? purchase.purchaseOrderItems 
+            : [];
           return {
             ...purchase,
             vendorName: vendor ? vendor.name : 'Not specified',
-            itemCount: this.calculateTotalQuantity(purchase.purchaseOrderItems || []),
-            totalAmount: purchase.totalAmount,
-            createdDate: new Date(purchase.createdDate).toLocaleDateString(),
-            itemName: this.getItemNames(purchase.purchaseOrderItems || []),
-            items: purchase.purchaseOrderItems || [] // Add items array for view bill functionality
+            itemCount: this.calculateTotalQuantity(items),
+            totalAmount: purchase.totalAmount || 0,
+            createdDate: new Date(purchase.orderDate || purchase.createdDate).toLocaleDateString(),
+            itemName: this.getItemNames(items),
+            items: items, // Add items array for view bill functionality
+            purchaseId: purchase.purchaseOrderNumber || purchase.id // Add purchaseId for filter to work
           };
         });
         this.isLoading = false;
@@ -78,9 +83,9 @@ export class PurchaseListComponent implements OnInit {
   }
 
   loadVendors(): void {
-    this.http.get<any[]>(`${environment.apiUrl}/dashboard/customers`).subscribe({
+    this.http.get<any[]>(`${environment.apiUrl}/Customer`).subscribe({
       next: (customers: any[]) => {
-        this.vendors = customers.filter((customer: any) => customer.CustomerType === 'Vendor');
+        this.vendors = customers.filter((customer: any) => customer.customerType === 'Vendor');
         this.loadPurchases(); // Load purchases after vendors are loaded
       },
       error: (error: any) => {
@@ -97,7 +102,10 @@ export class PurchaseListComponent implements OnInit {
   }
 
   calculateTotal(items: any[]): number {
-    return items.reduce((total, item) => total + (item.quantity * item.purchasePrice), 0);
+    return items.reduce((total, item) => {
+      const price = item.purchasePrice || item.price || item.unitPrice || 0;
+      return total + (item.quantity * price);
+    }, 0);
   }
 
   calculateTotalQuantity(items: any[]): number {
@@ -256,10 +264,16 @@ export class PurchaseListComponent implements OnInit {
     console.log('=== FILTER DEBUG ===');
     console.log('Filters applied:', filters);
     console.log('Total purchases before filter:', this.purchases.length);
+    console.log('Sample purchase data:', this.purchases[0]);
     
-    this.filteredPurchases = this.purchases.filter(purchase => {
-      // Order ID filter
-      if (filters.orderId && !purchase.id.toString().includes(filters.orderId)) {
+    this.filteredPurchases = this.dataSource.data.filter(purchase => {
+      console.log('Checking purchase:', purchase);
+      console.log('Purchase purchaseId:', purchase.purchaseId);
+      console.log('Filter value:', filters.purchaseId);
+      
+      // Purchase ID filter
+      if (filters.purchaseId && purchase.purchaseId && !purchase.purchaseId.toString().includes(filters.purchaseId)) {
+        console.log('Filtering out purchase - no match');
         return false;
       }
       
@@ -271,7 +285,7 @@ export class PurchaseListComponent implements OnInit {
       // Date range filter
       if (filters.fromDate) {
         const fromDate = new Date(filters.fromDate);
-        const purchaseDate = new Date(purchase.createdDate);
+        const purchaseDate = new Date(purchase.orderDate || purchase.createdDate);
         if (purchaseDate < fromDate) {
           return false;
         }
@@ -279,14 +293,17 @@ export class PurchaseListComponent implements OnInit {
       
       if (filters.toDate) {
         const toDate = new Date(filters.toDate);
-        const purchaseDate = new Date(purchase.createdDate);
+        const purchaseDate = new Date(purchase.orderDate || purchase.createdDate);
         if (purchaseDate > toDate) {
           return false;
         }
       }
       
       // Amount range filter
-      const totalAmount = this.calculateTotal(purchase.items || []);
+      const items = (purchase.purchaseOrderItems && Array.isArray(purchase.purchaseOrderItems)) 
+        ? purchase.purchaseOrderItems 
+        : [];
+      const totalAmount = this.calculateTotal(items);
       if (filters.minAmount && totalAmount < parseFloat(filters.minAmount)) {
         return false;
       }
@@ -296,19 +313,28 @@ export class PurchaseListComponent implements OnInit {
       }
       
       return true;
-    }));
+    });
     
     console.log('Filtered purchases count:', this.filteredPurchases.length);
     console.log('Filtered purchases:', this.filteredPurchases);
     
     // Update the data source
-    this.dataSource.data = this.filteredPurchases.map(purchase => ({
-      ...purchase,
-      itemCount: this.calculateTotalQuantity(purchase.items || []),
-      totalAmount: this.calculateTotal(purchase.items || []),
-      createdDate: new Date(purchase.createdDate).toLocaleDateString(),
-      itemName: this.getItemNames(purchase.items || [])
-    }));
+    this.dataSource.data = this.filteredPurchases.map(purchase => {
+      const items = (purchase.purchaseOrderItems && Array.isArray(purchase.purchaseOrderItems)) 
+        ? purchase.purchaseOrderItems 
+        : [];
+      // Find vendor name to ensure it's preserved
+      const vendor = this.vendors.find(v => v.id === purchase.vendorId);
+      return {
+        ...purchase,
+        vendorName: vendor ? vendor.name : 'Not specified',
+        itemCount: this.calculateTotalQuantity(items),
+        totalAmount: this.calculateTotal(items),
+        createdDate: new Date(purchase.orderDate || purchase.createdDate).toLocaleDateString(),
+        itemName: this.getItemNames(items),
+        items: items // Add items property for View Bill button
+      };
+    });
     
     this.snackBar.open(`Filters applied: ${this.filteredPurchases.length} orders found`, 'Success', {
       duration: 3000,
@@ -322,13 +348,23 @@ export class PurchaseListComponent implements OnInit {
     this.filteredPurchases = [...this.purchases];
     
     // Update the data source
-    this.dataSource.data = this.filteredPurchases.map(purchase => ({
-      ...purchase,
-      itemCount: this.calculateTotalQuantity(purchase.items || []),
-      totalAmount: this.calculateTotal(purchase.items || []),
-      createdDate: new Date(purchase.createdDate).toLocaleDateString(),
-      itemName: this.getItemNames(purchase.items || [])
-    }));
+    this.dataSource.data = this.filteredPurchases.map(purchase => {
+      const items = (purchase.purchaseOrderItems && Array.isArray(purchase.purchaseOrderItems)) 
+        ? purchase.purchaseOrderItems 
+        : [];
+      // Find vendor name to ensure it's preserved
+      const vendor = this.vendors.find(v => v.id === purchase.vendorId);
+      return {
+        ...purchase,
+        vendorName: vendor ? vendor.name : 'Not specified',
+        itemCount: this.calculateTotalQuantity(items),
+        totalAmount: this.calculateTotal(items),
+        createdDate: new Date(purchase.orderDate || purchase.createdDate).toLocaleDateString(),
+        itemName: this.getItemNames(items),
+        items: items, // Add items property for View Bill button
+        purchaseId: purchase.purchaseOrderNumber || purchase.id // Use PurchaseOrderNumber for display
+      };
+    });
     
     this.snackBar.open('Filters cleared', 'Success', {
       duration: 3000,

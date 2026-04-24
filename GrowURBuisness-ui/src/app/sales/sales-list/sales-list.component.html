@@ -16,10 +16,10 @@
       <mat-card-content>
         <form [formGroup]="filterForm" class="filter-form">
           <div class="filter-row">
-            <!-- Invoice ID Filter -->
+            <!-- Invoice No Filter -->
             <mat-form-field appearance="outline">
-              <mat-label>Invoice ID</mat-label>
-              <input matInput placeholder="Enter Invoice ID" formControlName="invoiceId">
+              <mat-label>Invoice No</mat-label>
+              <input matInput placeholder="Enter Invoice No" formControlName="invoiceId">
               <mat-icon matSuffix>search</mat-icon>
             </mat-form-field>
 
@@ -97,11 +97,11 @@
       <mat-card-content>
         <div class="table-container">
           <table mat-table [dataSource]="dataSource">
-            <!-- ID Column -->
-            <ng-container matColumnDef="id">
+            <!-- Invoice Number Column -->
+            <ng-container matColumnDef="invoiceNo">
               <th mat-header-cell *matHeaderCellDef>Invoice #</th>
               <td mat-cell *matCellDef="let invoice">
-                <strong>#{{ invoice.id }}</strong>
+                <strong>{{ invoice.invoiceNo || invoice.invoiceNumber || invoice.InvoiceNo || invoice.InvoiceNumber }}</strong>
               </td>
             </ng-container>
 
@@ -120,7 +120,9 @@
             <!-- Item Count Column -->
             <ng-container matColumnDef="itemCount">
               <th mat-header-cell *matHeaderCellDef>Items</th>
-              <td mat-cell *matCellDef="let invoice">{{ invoice.items?.length || 0 }}</td>
+              <td mat-cell *matCellDef="let invoice">
+                <span [innerHTML]="getItemDisplayCount(invoice)"></span>
+              </td>
             </ng-container>
 
             <!-- Total Amount Column -->
@@ -151,15 +153,15 @@
             <ng-container matColumnDef="actions">
               <th mat-header-cell *matHeaderCellDef>Actions</th>
               <td mat-cell *matCellDef="let invoice">
-                <button mat-raised-button color="primary" (click)="viewBill(invoice)" [disabled]="!invoice.items || invoice.items.length === 0">
+                <button mat-raised-button color="primary" (click)="viewBill(invoice)">
                   <mat-icon>receipt</mat-icon>
                   View Bill
                 </button>
               </td>
             </ng-container>
 
-            <tr mat-header-row *matHeaderRowDef="['id', 'createdDate', 'customerName', 'itemCount', 'totalAmount', 'paymentType', 'status', 'actions']"></tr>
-            <tr mat-row *matRowDef="let row; columns: ['id', 'createdDate', 'customerName', 'itemCount', 'totalAmount', 'paymentType', 'status', 'actions'];"></tr>
+            <tr mat-header-row *matHeaderRowDef="['invoiceNo', 'createdDate', 'customerName', 'itemCount', 'totalAmount', 'paymentType', 'status', 'actions']"></tr>
+            <tr mat-row *matRowDef="let row; columns: ['invoiceNo', 'createdDate', 'customerName', 'itemCount', 'totalAmount', 'paymentType', 'status', 'actions'];"></tr>
           </table>
         </div>
       </mat-card-content>

@@ -45,6 +45,26 @@ export class CreateInvoiceComponent implements OnInit {
   selectedItemPrice: number | null = null;
   selectedCustomer: any = null;
 
+  printInvoice(): void {
+    if (this.generatedInvoiceId) {
+      const invoiceContent = this.generateInvoiceContent();
+      const printWindow = window.open('', '_blank', 'width=800,height=600,scrollbars=yes,resizable=yes');
+      
+      if (printWindow) {
+        printWindow.document.write(invoiceContent);
+        printWindow.document.close();
+        printWindow.focus();
+        
+        // Trigger print dialog
+        setTimeout(() => {
+          printWindow.print();
+        }, 250);
+      }
+    } else {
+      this.snackBar.open('No invoice to print', 'Error', { duration: 3000 });
+    }
+  }
+
   constructor(
     private fb: FormBuilder,
     private billingService: BillingService,
@@ -66,8 +86,11 @@ export class CreateInvoiceComponent implements OnInit {
   }
 
   loadItems(): void {
+    console.log('Sales Create - Loading items...');
     this.billingService.getAllItems().subscribe({
       next: (items: any[]) => {
+        console.log('Sales Create - Items loaded:', items.length);
+        console.log('Sales Create - Items data:', items);
         this.items = items;
         const filteredItems = items.filter(item => {
           const stockQuantity = item.stock || item.stockQuantity || 0;
@@ -78,6 +101,7 @@ export class CreateInvoiceComponent implements OnInit {
           ...item,
           itemName: item.name
         }));
+        console.log('Sales Create - Available items:', this.availableItems.length);
       },
       error: (error) => {
         console.error('Error loading items:', error);
@@ -87,9 +111,23 @@ export class CreateInvoiceComponent implements OnInit {
   }
 
   loadCustomers(): void {
+    console.log('Sales Create - Loading customers...');
     this.billingService.getCustomers().subscribe({
       next: (customers: any[]) => {
-        this.customers = customers;
+        console.log('Sales Create - All customers loaded:', customers.length);
+        console.log('Sales Create - Raw customers data:', customers);
+        
+        // Filter for customers only (CustomerType='Customer')
+        this.customers = customers.filter((customer: any) => 
+          customer.customerType === 'Customer' || 
+          customer.type === 'Customer' ||
+          customer.CustomerType === 'Customer' ||
+          customer.Type === 'Customer' ||
+          !customer.customerType && !customer.type // Include if no type specified
+        );
+        
+        console.log('Sales Create - Filtered customers:', this.customers);
+        console.log('Sales Create - Customer count after filtering:', this.customers.length);
       },
       error: (error) => {
         console.error('Error loading customers:', error);
@@ -101,7 +139,8 @@ export class CreateInvoiceComponent implements OnInit {
   onItemChange(): void {
     const itemId = this.billForm.get('itemId')?.value;
     if (itemId) {
-      this.selectedItemPrice = this.availableItems.find(item => item.id === parseInt(itemId))?.price || 0;
+      const item = this.availableItems.find((item: any) => item.id === parseInt(itemId));
+      this.selectedItemPrice = item?.price || 0;
     } else {
       this.selectedItemPrice = null;
     }
@@ -128,7 +167,7 @@ export class CreateInvoiceComponent implements OnInit {
       return;
     }
 
-    const existingBillItem = this.bills.find(bill => bill.itemId === itemId);
+    const existingBillItem = this.billItems.find(bill => bill.itemId === itemId);
     if (existingBillItem) {
       existingBillItem.quantity += quantity;
       existingBillItem.salePrice = salePrice;
@@ -144,7 +183,7 @@ export class CreateInvoiceComponent implements OnInit {
         profit: (salePrice - item.price) * quantity,
         isCustomRate: salePrice !== item.price
       };
-      this.bills.push(billItem);
+      this.billItems.push(billItem);
     }
 
     this.billForm.patchValue({ itemId: '', quantity: 1, salePrice: 0 });
@@ -152,25 +191,25 @@ export class CreateInvoiceComponent implements OnInit {
   }
 
   removeItemFromBill(billItem: BillItem): void {
-    const index = this.bills.indexOf(billItem);
+    const index = this.billItems.indexOf(billItem);
     if (index > -1) {
-      this.bills.splice(index, 1);
+      this.billItems.splice(index, 1);
     }
   }
 
   getTotalAmount(): number {
-    return this.bills.reduce((total, bill) => total + bill.total, 0);
+    return this.billItems.reduce((total, bill) => total + bill.total, 0);
   }
 
   getTotalProfit(): number {
-    return this.bills.reduce((total, bill) => total + bill.profit, 0);
+    return this.billItems.reduce((total, bill) => total + bill.profit, 0);
   }
 
   onSubmit(): void {
     const customerId = this.billForm.get('customerId')?.value;
     const paymentType = this.billForm.get('paymentType')?.value;
 
-    if (!customerId || this.bills.length === 0) {
+    if (!customerId || this.billItems.length === 0) {
       this.snackBar.open('Please select a customer and add at least one item', 'Error', { duration: 3000 });
       return;
     }
@@ -179,7 +218,7 @@ export class CreateInvoiceComponent implements OnInit {
       const invoiceRequest: CreateInvoiceRequest = {
         customerId: parseInt(customerId),
         paymentType: paymentType,
-        items: this.bills.map(bill => ({
+        items: this.billItems.map(bill => ({
           itemId: bill.itemId,
           quantity: bill.quantity,
           price: bill.salePrice
@@ -189,8 +228,8 @@ export class CreateInvoiceComponent implements OnInit {
       this.billingService.createInvoice(invoiceRequest).subscribe({
         next: (response) => {
           if (response.success) {
-            this.generatedInvoiceId = Date.now();
-            this.snackBar.open('Invoice created successfully!', 'Success', { duration: 3000 });
+            this.generatedInvoiceId = response.invoiceId || Date.now();
+            this.snackBar.open(`Invoice #${response.invoiceId || 'N/A'} created successfully!`, 'Success', { duration: 3000 });
             this.resetForm();
           } else {
             this.snackBar.open(response.message || 'Failed to create invoice', 'Error', { duration: 3000 });
@@ -216,6 +255,7 @@ export class CreateInvoiceComponent implements OnInit {
       salePrice: 0
     });
     this.bills = [];
+    this.billItems = [];
     this.selectedCustomer = null;
     this.selectedItemPrice = null;
   }
@@ -251,5 +291,86 @@ export class CreateInvoiceComponent implements OnInit {
   createInvoiceWithPrint(): void {
     this.onSubmit();
     // Print functionality would go here
+  }
+
+  generateInvoiceContent(): string {
+    const customer = this.selectedCustomer;
+    const currentDate = new Date().toLocaleDateString();
+    
+    const itemsHtml = (this.billItems || []).map((item: BillItem, index: number) => 
+      `<tr>
+        <td>${index + 1}</td>
+        <td>${item.name}</td>
+        <td>${item.quantity}</td>
+        <td>${item.purchasePrice.toFixed(2)}</td>
+        <td>${item.salePrice.toFixed(2)}</td>
+        <td>${item.total.toFixed(2)}</td>
+        <td>${item.profit.toFixed(2)}</td>
+      </tr>`
+    ).join('');
+
+    const totalAmount = this.getTotalAmount() || 0;
+    const totalProfit = this.getTotalProfit() || 0;
+
+    return `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Sales Invoice #${this.generatedInvoiceId}</title>
+        <style>
+          body { font-family: Arial, sans-serif; margin: 20px; }
+          .invoice-header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #333; padding-bottom: 20px; }
+          .invoice-info { margin-bottom: 20px; }
+          .invoice-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+          .invoice-table th, .invoice-table td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+          .invoice-table th { background-color: #f2f2f2; font-weight: bold; }
+          .total-section { text-align: right; font-weight: bold; margin-top: 20px; }
+          .action-buttons { text-align: center; margin-top: 30px; }
+          .btn { padding: 10px 20px; margin: 0 10px; border: none; border-radius:4px; cursor: pointer; }
+          .print-btn { background-color: #1976d2; color: white; }
+          .close-btn { background-color: #f44336; color: white; }
+        </style>
+      </head>
+      <body>
+        <div class="invoice-header">
+          <h1>SALES INVOICE</h1>
+          <h2>Invoice #${this.generatedInvoiceId}</h2>
+        </div>
+        
+        <div class="invoice-info">
+          <p><strong>Date:</strong> ${currentDate}</p>
+          <p><strong>Customer:</strong> ${customer?.name || 'Walk-in Customer'}</p>
+          <p><strong>Payment Type:</strong> ${this.billForm.get('paymentType')?.value || 'Cash'}</p>
+        </div>
+        
+        <table class="invoice-table">
+          <thead>
+            <tr>
+              <th>S.No</th>
+              <th>Item Name</th>
+              <th>Quantity</th>
+              <th>Purchase Price</th>
+              <th>Sales Price</th>
+              <th>Total</th>
+              <th>Profit/Loss</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${itemsHtml}
+          </tbody>
+        </table>
+        
+        <div class="total-section">
+          <p>Total Amount: ${totalAmount.toFixed(2)}</p>
+          <p>Total Profit: ${totalProfit.toFixed(2)}</p>
+        </div>
+        
+        <div class="action-buttons">
+          <button class="btn print-btn" onclick="window.print()">Print</button>
+          <button class="btn close-btn" onclick="window.close()">Close</button>
+        </div>
+      </body>
+      </html>
+    `;
   }
 }

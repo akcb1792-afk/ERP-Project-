@@ -1,66 +1,183 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using GrowURBuisness.API.Data;
 using GrowURBuisness.API.Models;
 
 namespace GrowURBuisness.API.Controllers
 {
     [ApiController]
-    [Route("api/dashboard")]
+    [Route("api/[controller]")]
     public class DashboardController : ControllerBase
     {
-        [HttpGet("stats")]
-        public ActionResult<DashboardStats> GetStats()
+        private readonly ApplicationDbContext _context;
+
+        public DashboardController(ApplicationDbContext context)
         {
-            // Calculate stats from sample data
-            var stats = new DashboardStats
+            _context = context;
+        }
+
+        // GET: api/dashboard/stats
+        [HttpGet("stats")]
+        public async Task<ActionResult<object>> GetDashboardStats()
+        {
+            var totalCustomers = await _context.Customers.CountAsync(c => c.IsActive);
+            var totalItems = await _context.Items.CountAsync(i => i.IsActive);
+            var totalInvoices = await _context.Invoices.CountAsync();
+            var totalStockQuantity = await _context.Items.Where(i => i.IsActive).SumAsync(i => i.StockQuantity);
+            var lowStockItems = await _context.Items
+                .Include(i => i.Category)
+                .Where(i => i.IsActive && i.StockQuantity <= i.MinimumStock)
+                .CountAsync();
+            
+            var totalRevenue = await _context.Invoices
+                .Where(i => i.Status == "Paid")
+                .SumAsync(i => i.TotalAmount);
+            
+            var today = DateTime.Today;
+            var todayRevenue = await _context.Invoices
+                .Where(i => i.InvoiceDate.Date == today && i.Status == "Paid")
+                .SumAsync(i => i.TotalAmount);
+
+            var stats = new
             {
-                TotalOrders = SampleData.Orders.Count,
-                TotalQuantitySold = SampleData.Orders.Sum(o => o.Items),
-                TotalPurchase = SampleData.Orders.Where(o => o.Status == "Completed").Sum(o => o.Amount),
-                TodaysTotal = SampleData.Orders.Where(o => o.Date.Date == DateTime.Today).Sum(o => o.Amount),
-                InventoryCount = SampleData.InventoryItems.Count,
-                TotalAmount = SampleData.Invoices.Sum(i => i.Amount),
-                TotalCustomers = SampleData.Customers.Count,
-                TotalInvoices = SampleData.Invoices.Count,
-                TotalRevenue = SampleData.Invoices.Where(i => i.Status == "Paid").Sum(i => i.Amount),
-                LowStockItems = SampleData.InventoryItems.Count(item => item.Stock < 10),
-                PendingInvoices = SampleData.Invoices.Count(i => i.Status == "Pending")
+                TotalOrders = totalInvoices,
+                TotalQuantitySold = totalStockQuantity,
+                TotalPurchase = 0.0, // No purchase orders in current schema
+                TodaysTotal = todayRevenue,
+                InventoryCount = totalItems,
+                TotalAmount = totalRevenue,
+                TotalCustomers = totalCustomers,
+                TotalInvoices = totalInvoices,
+                TotalRevenue = totalRevenue,
+                TotalSalesQuantity = totalStockQuantity,
+                TotalPurchaseQuantity = 0,
+                TotalSalesValue = totalRevenue,
+                TotalPurchaseValue = 0.0,
+                Profit = totalRevenue - 0m, // Revenue - purchase cost
+                LowStockItems = lowStockItems,
+                PendingInvoices = await _context.Invoices.CountAsync(i => i.Status == "Pending")
             };
 
             return Ok(stats);
         }
 
+        // GET: api/dashboard/recent-invoices
         [HttpGet("recent-invoices")]
-        public ActionResult<IEnumerable<Invoice>> GetRecentInvoices()
+        public async Task<ActionResult<object>> GetRecentInvoices()
         {
-            var recentInvoices = SampleData.Invoices
-                .OrderByDescending(i => i.Date)
+            var recentInvoices = await _context.Invoices
+                .Include(i => i.Customer)
+                .Include(i => i.InvoiceItems)
+                .OrderByDescending(i => i.InvoiceDate)
                 .Take(5)
-                .ToList();
+                .Select(i => new
+                {
+                    i.Id,
+                    Customer = i.Customer.Name,
+                    Amount = i.TotalAmount,
+                    Date = i.InvoiceDate,
+                    Items = i.InvoiceItems.Count,
+                    Status = i.Status
+                })
+                .ToListAsync();
 
             return Ok(recentInvoices);
         }
 
+        // GET: api/dashboard/recent-orders
         [HttpGet("recent-orders")]
-        public ActionResult<IEnumerable<Order>> GetRecentOrders()
+        public async Task<ActionResult<object>> GetRecentOrders()
         {
-            var recentOrders = SampleData.Orders
-                .OrderByDescending(o => o.Date)
+            var recentOrders = await _context.Invoices
+                .Include(i => i.Customer)
+                .OrderByDescending(i => i.InvoiceDate)
                 .Take(5)
-                .ToList();
+                .Select(i => new
+                {
+                    Id = $"INV-{i.Id:D3}",
+                    Customer = i.Customer.Name,
+                    Amount = i.TotalAmount,
+                    Date = i.InvoiceDate,
+                    Items = i.InvoiceItems.Count,
+                    Status = i.Status == "Paid" ? "Completed" : "Processing"
+                })
+                .ToListAsync();
 
             return Ok(recentOrders);
         }
 
-        [HttpGet("low-stock-items")]
-        public ActionResult<IEnumerable<InventoryItem>> GetLowStockItems()
+        // GET: api/dashboard/low-stock
+        [HttpGet("low-stock")]
+        public async Task<ActionResult<object>> GetLowStockItems()
         {
-            var lowStockItems = SampleData.InventoryItems
-                .Where(item => item.Stock < 10)
-                .OrderBy(item => item.Stock)
-                .Take(10)
-                .ToList();
+            var lowStockItems = await _context.Items
+                .Include(i => i.Category)
+                .Where(i => i.IsActive && i.StockQuantity <= i.MinimumStock)
+                .Select(i => new
+                {
+                    i.Id,
+                    Name = i.Name,
+                    Category = i.Category.Name,
+                    Stock = i.StockQuantity,
+                    MinimumStock = i.MinimumStock,
+                    Price = i.Price,
+                    Shortage = i.MinimumStock - i.StockQuantity
+                })
+                .ToListAsync();
 
             return Ok(lowStockItems);
+        }
+
+        // GET: api/dashboard/customers (temporary workaround)
+        [HttpGet("customers")]
+        public async Task<ActionResult<object>> GetCustomers()
+        {
+            var customers = await _context.Customers
+                .Select(c => new
+                {
+                    c.Id,
+                    c.Name,
+                    c.Email,
+                    c.Phone,
+                    c.CustomerType,
+                    c.CreatedDate,
+                    c.IsActive
+                })
+                .ToListAsync();
+
+            return Ok(customers);
+        }
+
+        // POST: api/dashboard/customers (temporary workaround)
+        [HttpPost("customers")]
+        public async Task<ActionResult<object>> CreateCustomer([FromBody] Customer customer)
+        {
+            try
+            {
+                customer.CreatedDate = DateTime.Now;
+                customer.LastModifiedDate = DateTime.Now;
+                customer.IsActive = true;
+
+                _context.Customers.Add(customer);
+                await _context.SaveChangesAsync();
+
+                var result = new
+                {
+                    customer.Id,
+                    customer.Name,
+                    customer.Email,
+                    customer.Phone,
+                    customer.CustomerType,
+                    customer.CreatedDate,
+                    customer.IsActive
+                };
+
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { error = ex.Message });
+            }
         }
     }
 }

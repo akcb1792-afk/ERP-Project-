@@ -30,9 +30,7 @@ export class ItemListComponent implements OnInit {
   ) {
     this.filterForm = this.fb.group({
       itemName: [''],
-      category: [''],
-      stockFilter: [''],
-      quantity: ['']
+      category: ['']
     });
   }
 
@@ -69,36 +67,16 @@ export class ItemListComponent implements OnInit {
         return false;
       }
       
-      // Stock quantity filter
-      const stockQuantity = item.stock || item.stockQuantity || 0;
-      if (filters.stockFilter) {
-        switch (filters.stockFilter) {
-          case 'instock':
-            return stockQuantity > 0;
-          case 'outofstock':
-            return stockQuantity === 0;
-          case 'lowstock':
-            return stockQuantity <= 10;
-          default:
-            return true;
-        }
-      }
-      
-      // Quantity filter
-      if (filters.quantity && stockQuantity < parseInt(filters.quantity)) {
-        return false;
-      }
-      
       return true;
-      this.calculateSummaryData(this.filteredItems);
     });
+    
+    this.calculateSummaryData(this.filteredItems);
   }
 
   clearFilters(): void {
     this.filterForm.reset({
       itemName: '',
-      category: '',
-      stockFilter: ''
+      category: ''
     });
     this.filteredItems = [...this.items];
     this.calculateSummaryData(this.filteredItems);

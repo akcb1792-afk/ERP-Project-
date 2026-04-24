@@ -16,10 +16,10 @@
       <mat-card-content>
         <form [formGroup]="filterForm" class="filter-form">
           <div class="filter-row">
-            <!-- Order ID Filter -->
+            <!-- PO Number Search -->
             <mat-form-field appearance="outline">
-              <mat-label>Order ID</mat-label>
-              <input matInput placeholder="Enter Order ID" formControlName="orderId">
+              <mat-label>PO Number Search</mat-label>
+              <input matInput placeholder="Enter Purchase No" formControlName="purchaseId">
               <mat-icon matSuffix>search</mat-icon>
             </mat-form-field>
 
@@ -86,11 +86,11 @@
       <mat-card-content>
         <div class="table-container">
           <table mat-table [dataSource]="dataSource">
-            <!-- ID Column -->
-            <ng-container matColumnDef="id">
-              <th mat-header-cell *matHeaderCellDef>Purchase ID</th>
+            <!-- Purchase No Column -->
+            <ng-container matColumnDef="purchaseId">
+              <th mat-header-cell *matHeaderCellDef style="width: 200px;">Purchase No</th>
               <td mat-cell *matCellDef="let purchase">
-                <strong>#{{ purchase.id }}</strong>
+                <strong>{{ purchase.purchaseOrderNumber || purchase.id }}</strong>
               </td>
             </ng-container>
 

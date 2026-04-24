@@ -103,11 +103,30 @@
     th {
       font-weight: 600;
       color: #333;
+      
+      // Specific styling for invoice number column
+      &:nth-child(1) {
+        min-width: 180px;
+        width: 180px;
+        white-space: nowrap;
+      }
     }
   }
   
   .mat-mdc-row:hover {
     background-color: #f9f9f9;
+  }
+  
+  .mat-mdc-row {
+    td {
+      // Specific styling for invoice number column cells
+      &:nth-child(1) {
+        min-width: 180px;
+        width: 180px;
+        white-space: nowrap;
+        font-weight: 500;
+      }
+    }
   }
 }
 

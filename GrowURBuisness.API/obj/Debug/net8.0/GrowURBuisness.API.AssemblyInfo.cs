@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("GrowURBuisness.API")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+931c48458a1fd24c7bc0144d0d17714624888172")]
 [assembly: System.Reflection.AssemblyProductAttribute("GrowURBuisness.API")]
 [assembly: System.Reflection.AssemblyTitleAttribute("GrowURBuisness.API")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

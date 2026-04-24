@@ -1,5 +1,43 @@
 namespace GrowURBuisness.API.Models
 {
+    // DTOs for Reports
+    public class SalesReport
+    {
+        public List<DailySalesItem> DailySalesList { get; set; } = new();
+        public decimal TotalSalesAmount { get; set; }
+        public int TotalSalesCount { get; set; }
+    }
+
+    public class DailySalesItem
+    {
+        public DateTime Date { get; set; }
+        public decimal TotalSales { get; set; }
+        public int SalesCount { get; set; }
+    }
+
+    public class PurchaseReport
+    {
+        public List<DailyPurchaseItem> DailyPurchaseList { get; set; } = new();
+        public decimal TotalPurchaseAmount { get; set; }
+        public int TotalPurchaseCount { get; set; }
+    }
+
+    public class DailyPurchaseItem
+    {
+        public DateTime Date { get; set; }
+        public decimal TotalPurchase { get; set; }
+        public int PurchaseCount { get; set; }
+    }
+
+    public class DetailedPurchaseItem
+    {
+        public int OrderId { get; set; }
+        public DateTime PurchaseDate { get; set; }
+        public string VendorName { get; set; } = string.Empty;
+        public decimal TotalAmount { get; set; }
+        public int TotalItems { get; set; }
+    }
+
     public static class SampleData
     {
         public static List<Customer> Customers => new List<Customer>

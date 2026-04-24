@@ -51,7 +51,7 @@ export class BillingService {
   }
 
   getAllItems(): Observable<Item[]> {
-    return this.http.get<Item[]>(`${this.apiUrl}/items`);
+    return this.http.get<Item[]>(`${this.apiUrl}/billing/items`);
   }
 
   createInvoice(request: CreateInvoiceRequest): Observable<any> {
@@ -63,7 +63,11 @@ export class BillingService {
   }
 
   getCustomers(): Observable<any[]> {
-    return this.http.get<any[]>(`${this.apiUrl}/customers`);
+    return this.http.get<any[]>(`${this.apiUrl}/Customer`);
+  }
+
+  getInvoiceById(invoiceId: number): Observable<any> {
+    return this.http.get<any>(`${this.apiUrl}/billing/invoices/${invoiceId}`);
   }
 
   deleteInvoice(invoiceId: number): Observable<void> {

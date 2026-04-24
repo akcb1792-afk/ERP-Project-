@@ -61,23 +61,7 @@
             </mat-select>
           </mat-form-field>
 
-          <!-- Stock Quantity Filter -->
-          <mat-form-field appearance="outline">
-            <mat-label>Stock Quantity</mat-label>
-            <mat-select formControlName="stockFilter">
-              <mat-option value="">All Items</mat-option>
-              <mat-option value="instock">In Stock</mat-option>
-              <mat-option value="outofstock">Out of Stock</mat-option>
-              <mat-option value="lowstock">Low Stock (≤10)</mat-option>
-            </mat-select>
-          </mat-form-field>
-
-          <!-- Quantity Input -->
-          <mat-form-field appearance="outline">
-            <mat-label>Quantity</mat-label>
-            <input matInput type="number" placeholder="Enter quantity" formControlName="quantity" min="1">
-          </mat-form-field>
-
+          
           <!-- Filter Actions -->
           <div class="filter-actions">
             <button mat-raised-button color="primary" (click)="applyFilters()">
