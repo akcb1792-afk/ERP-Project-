@@ -1,15 +1,16 @@
 <div class="container">
-  <h2>{{ title }}</h2>
-
+  <h1>Reports Dashboard</h1>
+  
   <div class="reports-grid">
+    <!-- Row 1: Core Reports -->
     <mat-card class="report-card clickable-card" (click)="navigateToSalesReport()">
       <mat-card-header>
         <mat-card-title>Sales Report</mat-card-title>
       </mat-card-header>
       <mat-card-content>
         <div class="report-content">
-          <mat-icon class="report-icon">receipt_long</mat-icon>
-          <span class="report-description">View detailed sales analytics and reports</span>
+          <mat-icon class="report-icon">trending_up</mat-icon>
+          <span class="report-description">View sales performance and revenue analysis</span>
         </div>
       </mat-card-content>
     </mat-card>
@@ -21,10 +22,95 @@
       <mat-card-content>
         <div class="report-content">
           <mat-icon class="report-icon">shopping_cart</mat-icon>
-          <span class="report-description">View detailed purchase analytics and reports</span>
+          <span class="report-description">Track purchase orders and supplier performance</span>
+        </div>
+      </mat-card-content>
+    </mat-card>
+
+    <mat-card class="report-card clickable-card" (click)="navigateToCustomerLedger()">
+      <mat-card-header>
+        <mat-card-title>Customer Ledger</mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <div class="report-content">
+          <mat-icon class="report-icon">account_balance</mat-icon>
+          <span class="report-description">View customer credit transactions and outstanding balances</span>
+        </div>
+      </mat-card-content>
+    </mat-card>
+
+    <mat-card class="report-card clickable-card" (click)="navigateToSupplierLedger()">
+      <mat-card-header>
+        <mat-card-title>Supplier Ledger</mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <div class="report-content">
+          <mat-icon class="report-icon">account_balance</mat-icon>
+          <span class="report-description">Show supplier-wise outstanding based on purchases</span>
+        </div>
+      </mat-card-content>
+    </mat-card>
+
+    <!-- Row 2: Item-wise Reports -->
+    <mat-card class="report-card clickable-card" (click)="navigateToItemWiseSales()">
+      <mat-card-header>
+        <mat-card-title>Item-wise Sales</mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <div class="report-content">
+          <mat-icon class="report-icon">trending_up</mat-icon>
+          <span class="report-description">Item-wise sales analysis for business insights</span>
+        </div>
+      </mat-card-content>
+    </mat-card>
+
+    <mat-card class="report-card clickable-card" (click)="navigateToPurchaseItemWise()">
+      <mat-card-header>
+        <mat-card-title>Item-wise Purchase</mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <div class="report-content">
+          <mat-icon class="report-icon">inventory_2</mat-icon>
+          <span class="report-description">Show item-wise purchase summary for cost analysis</span>
+        </div>
+      </mat-card-content>
+    </mat-card>
+
+    <mat-card class="report-card clickable-card" (click)="navigateToDayBook()">
+      <mat-card-header>
+        <mat-card-title>Day Book</mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <div class="report-content">
+          <mat-icon class="report-icon">book</mat-icon>
+          <span class="report-description">View daily combined sales and purchase transactions</span>
+        </div>
+      </mat-card-content>
+    </mat-card>
+
+    <mat-card class="report-card clickable-card" (click)="navigateToTopCustomers()">
+      <mat-card-header>
+        <mat-card-title>Top Customers</mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <div class="report-content">
+          <mat-icon class="report-icon">people</mat-icon>
+          <span class="report-description">Identify top customers based on total sales</span>
+        </div>
+      </mat-card-content>
+    </mat-card>
+
+    <!-- Row 3: Top Performance Reports -->
+    <mat-card class="report-card clickable-card" (click)="navigateToTopSuppliers()">
+      <mat-card-header>
+        <mat-card-title>Top Suppliers</mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <div class="report-content">
+          <mat-icon class="report-icon">business</mat-icon>
+          <span class="report-description">Identify top suppliers based on total purchases</span>
         </div>
       </mat-card-content>
     </mat-card>
   </div>
-
 </div>

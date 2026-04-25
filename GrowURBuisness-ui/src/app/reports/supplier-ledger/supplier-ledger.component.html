@@ -1,0 +1,220 @@
+<div class="container">
+  <div class="header-section">
+    <h2>Supplier Ledger Report</h2>
+    <div class="header-buttons">
+      <button mat-raised-button color="accent" (click)="backToReports()" class="back-btn">
+        <mat-icon>arrow_back</mat-icon>
+        Back to Reports
+      </button>
+      <button mat-raised-button color="primary" (click)="exportToExcel()" class="export-btn">
+        <mat-icon>file_download</mat-icon>
+        Export to Excel
+      </button>
+    </div>
+  </div>
+
+  <!-- Filters Section -->
+  <mat-card class="filters-card">
+    <mat-card-header>
+      <mat-card-title>Filters</mat-card-title>
+    </mat-card-header>
+    <mat-card-content>
+      <form [formGroup]="filterForm" class="filter-form">
+        <div class="filter-row">
+          <!-- From Date -->
+          <mat-form-field appearance="outline" class="filter-field">
+            <mat-label>From Date</mat-label>
+            <input matInput [matDatepicker]="fromPicker" formControlName="fromDate">
+            <mat-datepicker-toggle matSuffix [for]="fromPicker"></mat-datepicker-toggle>
+            <mat-datepicker #fromPicker></mat-datepicker>
+          </mat-form-field>
+
+          <!-- To Date -->
+          <mat-form-field appearance="outline" class="filter-field">
+            <mat-label>To Date</mat-label>
+            <input matInput [matDatepicker]="toPicker" formControlName="toDate">
+            <mat-datepicker-toggle matSuffix [for]="toPicker"></mat-datepicker-toggle>
+            <mat-datepicker #toPicker></mat-datepicker>
+          </mat-form-field>
+
+          <!-- Supplier -->
+          <mat-form-field appearance="outline" class="filter-field supplier-field">
+            <mat-label>Supplier</mat-label>
+            <mat-select formControlName="vendorId">
+              <mat-option value="">All Suppliers</mat-option>
+              <mat-option *ngFor="let supplier of filteredSuppliers" [value]="supplier.id">
+                {{ supplier.name }}
+              </mat-option>
+            </mat-select>
+            <input matInput 
+                   placeholder="Search suppliers..." 
+                   (input)="onSupplierSearch($event)"
+                   class="supplier-search">
+          </mat-form-field>
+
+          <!-- Search Actions -->
+          <div class="filter-actions">
+            <button mat-raised-button color="primary" (click)="onSearch()" class="search-btn">
+              <mat-icon>search</mat-icon>
+              Search
+            </button>
+            <button mat-stroked-button color="accent" (click)="onReset()" class="reset-btn">
+              <mat-icon>refresh</mat-icon>
+              Reset
+            </button>
+          </div>
+        </div>
+      </form>
+
+      <!-- Error Message -->
+      <div class="error-message" *ngIf="hasError">
+        <mat-icon>warning</mat-icon>
+        {{ errorMessage }}
+      </div>
+    </mat-card-content>
+  </mat-card>
+
+  <!-- Loading State -->
+  <div class="loading-container" *ngIf="isLoading">
+    <mat-spinner></mat-spinner>
+    <p>Loading supplier ledger data...</p>
+  </div>
+
+  <!-- Summary Cards -->
+  <div class="summary-grid" *ngIf="!isLoading && summary">
+    <mat-card class="summary-card">
+      <mat-card-header>
+        <mat-card-title>
+          <mat-icon>shopping_cart</mat-icon>
+          Total Purchases
+        </mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <div class="summary-value">{{ summary.TotalPurchases | number:'1.2-2' }}</div>
+        <div class="summary-label">Purchase Amount</div>
+      </mat-card-content>
+    </mat-card>
+
+    <mat-card class="summary-card">
+      <mat-card-header>
+        <mat-card-title>
+          <mat-icon>account_balance</mat-icon>
+          Total Outstanding
+        </mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <div class="summary-value">{{ summary.TotalOutstanding | number:'1.2-2' }}</div>
+        <div class="summary-label">Outstanding Balance</div>
+      </mat-card-content>
+    </mat-card>
+
+    <mat-card class="summary-card">
+      <mat-card-header>
+        <mat-card-title>
+          <mat-icon>receipt_long</mat-icon>
+          Transactions
+        </mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <div class="summary-value">{{ summary.TransactionCount }}</div>
+        <div class="summary-label">Purchase Transactions</div>
+      </mat-card-content>
+    </mat-card>
+  </div>
+
+  <!-- Date Range Info -->
+  <div class="date-range-info" *ngIf="!isLoading && summary && summary.DateRange">
+    <strong>Date Range:</strong> {{ summary.DateRange.From }} to {{ summary.DateRange.To }}
+  </div>
+
+  <!-- Supplier Ledger Table -->
+  <div class="table-container" *ngIf="!isLoading">
+    <mat-card class="table-card">
+      <mat-card-header>
+        <mat-card-title>Supplier Ledger</mat-card-title>
+        <mat-card-subtitle>{{ supplierLedgerData.length }} transactions found</mat-card-subtitle>
+      </mat-card-header>
+      <mat-card-content>
+        <div class="table-wrapper">
+          <table mat-table [dataSource]="dataSource" class="supplier-ledger-table">
+            <!-- Date Column -->
+            <ng-container matColumnDef="Date">
+              <th mat-header-cell *matHeaderCellDef>Date</th>
+              <td mat-cell *matCellDef="let row">
+                {{ row.Date | date:'mediumDate' }}
+              </td>
+            </ng-container>
+
+            <!-- Type Column -->
+            <ng-container matColumnDef="Type">
+              <th mat-header-cell *matHeaderCellDef>Type</th>
+              <td mat-cell *matCellDef="let row">
+                <span class="transaction-type">{{ row.Type }}</span>
+              </td>
+            </ng-container>
+
+            <!-- Ref No Column -->
+            <ng-container matColumnDef="RefNo">
+              <th mat-header-cell *matHeaderCellDef>Ref No</th>
+              <td mat-cell *matCellDef="let row">
+                <span class="ref-no">{{ row.RefNo }}</span>
+              </td>
+            </ng-container>
+
+            <!-- Supplier Name Column -->
+            <ng-container matColumnDef="SupplierName">
+              <th mat-header-cell *matHeaderCellDef>Supplier</th>
+              <td mat-cell *matCellDef="let row">
+                <span class="supplier-name">{{ row.SupplierName }}</span>
+              </td>
+            </ng-container>
+
+            <!-- Debit Column -->
+            <ng-container matColumnDef="Debit">
+              <th mat-header-cell *matHeaderCellDef class="text-right">Debit</th>
+              <td mat-cell *matCellDef="let row" class="text-right">
+                <span class="debit-amount" *ngIf="row.Debit > 0">
+                  {{ row.Debit | number:'1.2-2' }}
+                </span>
+              </td>
+            </ng-container>
+
+            <!-- Credit Column -->
+            <ng-container matColumnDef="Credit">
+              <th mat-header-cell *matHeaderCellDef class="text-right">Credit</th>
+              <td mat-cell *matCellDef="let row" class="text-right">
+                <span class="credit-amount" *ngIf="row.Credit > 0">
+                  {{ row.Credit | number:'1.2-2' }}
+                </span>
+              </td>
+            </ng-container>
+
+            <!-- Balance Column -->
+            <ng-container matColumnDef="Balance">
+              <th mat-header-cell *matHeaderCellDef class="text-right">Balance</th>
+              <td mat-cell *matCellDef="let row" class="text-right">
+                <span class="balance-amount" [ngClass]="{
+                  'positive': row.Balance > 0,
+                  'zero': row.Balance === 0,
+                  'negative': row.Balance < 0
+                }">
+                  {{ row.Balance | number:'1.2-2' }}
+                </span>
+              </td>
+            </ng-container>
+
+            <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+            <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+          </table>
+        </div>
+
+        <!-- No Data Message -->
+        <div class="no-data" *ngIf="!isLoading && supplierLedgerData.length === 0">
+          <mat-icon>receipt_long</mat-icon>
+          <h3>No Purchase Transactions Found</h3>
+          <p>No purchase transactions found for the selected criteria.</p>
+        </div>
+      </mat-card-content>
+    </mat-card>
+  </div>
+</div>

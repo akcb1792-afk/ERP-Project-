@@ -8,6 +8,13 @@ import { SalesReportEnhancedComponent } from './sales-report/sales-report-enhanc
 import { PurchaseReportComponent } from './purchase-report/purchase-report.component';
 import { InventoryReportComponent } from './inventory-report/inventory-report.component';
 import { DashboardComponent } from './dashboard/dashboard.component';
+import { CustomerLedgerComponent } from './customer-ledger/customer-ledger.component';
+import { DayBookComponent } from './day-book/day-book.component';
+import { TopCustomersComponent } from './top-customers/top-customers.component';
+import { PurchaseItemWiseComponent } from './purchase-item-wise/purchase-item-wise.component';
+import { SupplierLedgerComponent } from './supplier-ledger/supplier-ledger.component';
+import { ItemWiseSalesComponent } from './item-wise-sales/item-wise-sales.component';
+import { TopSuppliersComponent } from './top-suppliers/top-suppliers.component';
 
 // Angular Material imports
 import { MatCardModule } from '@angular/material/card';
@@ -20,6 +27,7 @@ import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatSelectModule } from '@angular/material/select';
 import { MatPaginatorModule } from '@angular/material/paginator';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatNativeDateModule } from '@angular/material/core';
 
 @NgModule({
@@ -28,7 +36,14 @@ import { MatNativeDateModule } from '@angular/material/core';
     SalesReportEnhancedComponent,
     PurchaseReportComponent,
     InventoryReportComponent,
-    DashboardComponent
+    DashboardComponent,
+    CustomerLedgerComponent,
+    DayBookComponent,
+    TopCustomersComponent,
+    PurchaseItemWiseComponent,
+    SupplierLedgerComponent,
+    ItemWiseSalesComponent,
+    TopSuppliersComponent
   ],
   imports: [
     CommonModule,
@@ -46,7 +61,8 @@ import { MatNativeDateModule } from '@angular/material/core';
     MatNativeDateModule,
     MatSelectModule,
     MatPaginatorModule,
-    MatProgressSpinnerModule
+    MatProgressSpinnerModule,
+    MatTooltipModule
   ]
 })
 export class ReportsModule { }

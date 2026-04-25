@@ -1,0 +1,209 @@
+<div class="container">
+  <div class="header-section">
+    <h2>Item-wise Sales Report</h2>
+    <div class="header-buttons">
+      <button mat-raised-button color="accent" (click)="backToReports()" class="back-btn">
+        <mat-icon>arrow_back</mat-icon>
+        Back to Reports
+      </button>
+      <button mat-raised-button color="primary" (click)="exportToExcel()" class="export-btn">
+        <mat-icon>file_download</mat-icon>
+        Export to Excel
+      </button>
+    </div>
+  </div>
+
+  <!-- Filters Section -->
+  <mat-card class="filters-card">
+    <mat-card-header>
+      <mat-card-title>Filters</mat-card-title>
+    </mat-card-header>
+    <mat-card-content>
+      <form [formGroup]="filterForm" class="filter-form">
+        <div class="filter-row">
+          <!-- From Date -->
+          <mat-form-field appearance="outline" class="filter-field">
+            <mat-label>From Date</mat-label>
+            <input matInput [matDatepicker]="fromPicker" formControlName="fromDate">
+            <mat-datepicker-toggle matSuffix [for]="fromPicker"></mat-datepicker-toggle>
+            <mat-datepicker #fromPicker></mat-datepicker>
+          </mat-form-field>
+
+          <!-- To Date -->
+          <mat-form-field appearance="outline" class="filter-field">
+            <mat-label>To Date</mat-label>
+            <input matInput [matDatepicker]="toPicker" formControlName="toDate">
+            <mat-datepicker-toggle matSuffix [for]="toPicker"></mat-datepicker-toggle>
+            <mat-datepicker #toPicker></mat-datepicker>
+          </mat-form-field>
+
+          <!-- Item -->
+          <mat-form-field appearance="outline" class="filter-field item-field">
+            <mat-label>Item</mat-label>
+            <mat-select formControlName="itemId">
+              <mat-option value="">All Items</mat-option>
+              <mat-option *ngFor="let item of filteredItems" [value]="item.id">
+                {{ item.name }}
+              </mat-option>
+            </mat-select>
+            <input matInput 
+                   placeholder="Search items..." 
+                   (input)="onItemSearch($event)"
+                   class="item-search">
+          </mat-form-field>
+
+          <!-- Search Actions -->
+          <div class="filter-actions">
+            <button mat-raised-button color="primary" (click)="onSearch()" class="search-btn">
+              <mat-icon>search</mat-icon>
+              Search
+            </button>
+            <button mat-stroked-button color="accent" (click)="onReset()" class="reset-btn">
+              <mat-icon>refresh</mat-icon>
+              Reset
+            </button>
+          </div>
+        </div>
+      </form>
+
+      <!-- Error Message -->
+      <div class="error-message" *ngIf="hasError">
+        <mat-icon>warning</mat-icon>
+        {{ errorMessage }}
+      </div>
+    </mat-card-content>
+  </mat-card>
+
+  <!-- Loading State -->
+  <div class="loading-container" *ngIf="isLoading">
+    <mat-spinner></mat-spinner>
+    <p>Loading item-wise sales data...</p>
+  </div>
+
+  <!-- Summary Cards -->
+  <div class="summary-grid" *ngIf="!isLoading && summary">
+    <mat-card class="summary-card">
+      <mat-card-header>
+        <mat-card-title>
+          <mat-icon>inventory_2</mat-icon>
+          Total Items
+        </mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <div class="summary-value">{{ summary.TotalItems }}</div>
+        <div class="summary-label">Different Items</div>
+      </mat-card-content>
+    </mat-card>
+
+    <mat-card class="summary-card">
+      <mat-card-header>
+        <mat-card-title>
+          <mat-icon>shopping_cart</mat-icon>
+          Total Qty Sold
+        </mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <div class="summary-value">{{ summary.TotalQtySold }}</div>
+        <div class="summary-label">Total Quantity</div>
+      </mat-card-content>
+    </mat-card>
+
+    <mat-card class="summary-card">
+      <mat-card-header>
+        <mat-card-title>
+          <mat-icon>trending_up</mat-icon>
+          Total Sales
+        </mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <div class="summary-value">{{ summary.TotalSales | number:'1.2-2' }}</div>
+        <div class="summary-label">Sales Revenue</div>
+      </mat-card-content>
+    </mat-card>
+
+    <mat-card class="summary-card">
+      <mat-card-header>
+        <mat-card-title>
+          <mat-icon>calculate</mat-icon>
+          Avg Sales Rate
+        </mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <div class="summary-value">{{ summary.AvgRate | number:'1.2-2' }}</div>
+        <div class="summary-label">Average Rate</div>
+      </mat-card-content>
+    </mat-card>
+  </div>
+
+  <!-- Date Range Info -->
+  <div class="date-range-info" *ngIf="!isLoading && summary && summary.DateRange">
+    <strong>Date Range:</strong> {{ summary.DateRange.From }} to {{ summary.DateRange.To }}
+  </div>
+
+  <!-- Item-wise Sales Table -->
+  <div class="table-container" *ngIf="!isLoading">
+    <mat-card class="table-card">
+      <mat-card-header>
+        <mat-card-title>Item-wise Sales Summary</mat-card-title>
+        <mat-card-subtitle>{{ itemWiseSalesData.length }} items found</mat-card-subtitle>
+      </mat-card-header>
+      <mat-card-content>
+        <div class="table-wrapper">
+          <table mat-table [dataSource]="dataSource" class="item-wise-sales-table">
+            <!-- Item Name Column -->
+            <ng-container matColumnDef="ItemName">
+              <th mat-header-cell *matHeaderCellDef>Item Name</th>
+              <td mat-cell *matCellDef="let row; let i = index">
+                <div class="item-info" [ngClass]="{ 'top-item': isTopItem(i) }">
+                  <span class="rank-icon" *ngIf="isTopItem(i)">{{ getRankIcon(i) }}</span>
+                  <span class="item-name">{{ row.ItemName }}</span>
+                  <span class="top-badge" *ngIf="isTopItem(i)">TOP {{ i + 1 }}</span>
+                </div>
+              </td>
+            </ng-container>
+
+            <!-- Qty Sold Column -->
+            <ng-container matColumnDef="QtySold">
+              <th mat-header-cell *matHeaderCellDef class="text-right">Qty Sold</th>
+              <td mat-cell *matCellDef="let row; let i = index" class="text-right">
+                <span class="numeric-value" [ngClass]="{ 'top-item-value': isTopItem(i) }">
+                  {{ row.QtySold }}
+                </span>
+              </td>
+            </ng-container>
+
+            <!-- Total Sales Column -->
+            <ng-container matColumnDef="TotalSales">
+              <th mat-header-cell *matHeaderCellDef class="text-right">Total Sales</th>
+              <td mat-cell *matCellDef="let row; let i = index" class="text-right">
+                <span class="numeric-value sales-value" [ngClass]="{ 'top-item-value': isTopItem(i) }">
+                  {{ row.TotalSales | number:'1.2-2' }}
+                </span>
+              </td>
+            </ng-container>
+
+            <!-- Avg Rate Column -->
+            <ng-container matColumnDef="AvgRate">
+              <th mat-header-cell *matHeaderCellDef class="text-right">Avg Sales Rate</th>
+              <td mat-cell *matCellDef="let row; let i = index" class="text-right">
+                <span class="numeric-value rate-value" [ngClass]="{ 'top-item-value': isTopItem(i) }">
+                  {{ row.AvgRate | number:'1.2-2' }}
+                </span>
+              </td>
+            </ng-container>
+
+            <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+            <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+          </table>
+        </div>
+
+        <!-- No Data Message -->
+        <div class="no-data" *ngIf="!isLoading && itemWiseSalesData.length === 0">
+          <mat-icon>inventory_2</mat-icon>
+          <h3>No Sales Items Found</h3>
+          <p>No sales items found for the selected criteria.</p>
+        </div>
+      </mat-card-content>
+    </mat-card>
+  </div>
+</div>
