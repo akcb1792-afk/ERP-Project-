@@ -579,82 +579,67 @@ namespace GrowURBuisness.API.Controllers
 
         // GET: api/reports/customer-ledger
         [HttpGet("customer-ledger")]
-        public async Task<ActionResult<object>> GetCustomerLedgerReport(
-            [FromQuery] DateTime? fromDate = null,
-            [FromQuery] DateTime? toDate = null,
-            [FromQuery] int? customerId = null)
+        public async Task<ActionResult<object>> GetCustomerLedger([FromQuery] DateTime? fromDate = null, [FromQuery] DateTime? toDate = null, [FromQuery] int? customerId = null)
         {
             try
             {
-                // Start with base query for all sales (CREDIT, CASH, UPI)
                 var query = _context.Invoices
                     .Include(i => i.Customer)
                     .AsQueryable();
 
-                // Apply date filters
                 if (fromDate.HasValue)
                     query = query.Where(i => i.InvoiceDate.Date >= fromDate.Value.Date);
 
                 if (toDate.HasValue)
                     query = query.Where(i => i.InvoiceDate.Date <= toDate.Value.Date);
 
-                // Apply customer filter
                 if (customerId.HasValue)
                     query = query.Where(i => i.CustomerId == customerId.Value);
 
-                // Get the filtered invoices
+                // Get all invoices for the ledger
                 var invoices = await query
                     .OrderBy(i => i.InvoiceDate)
                     .ThenBy(i => i.InvoiceNumber)
-                    .Select(i => new
-                    {
-                        i.Id,
-                        InvoiceDate = i.InvoiceDate.Date,
-                        InvoiceNumber = i.InvoiceNumber,
-                        CustomerName = i.Customer.Name,
-                        TotalAmount = i.TotalAmount,
-                        PaymentType = i.PaymentType
-                    })
                     .ToListAsync();
 
-                // Transform to ledger format with running balance
-                var ledgerData = new List<object>();
-                decimal runningBalance = 0;
-
-                foreach (var invoice in invoices)
+                // Transform to ledger entries with proper accounting logic
+                var ledgerEntries = invoices.Select(invoice => new
                 {
-                    // Apply proper accounting logic
-                    decimal debit = invoice.TotalAmount; // Always debit the total amount
-                    decimal credit = 0;
-                    
-                    // Credit amount for CASH and UPI payments (instant payments)
-                    if (invoice.PaymentType == "Cash" || invoice.PaymentType == "UPI")
-                    {
-                        credit = invoice.TotalAmount;
-                    }
-                    
-                    runningBalance += debit - credit;
+                    Date = invoice.InvoiceDate,
+                    Type = "SALE",
+                    RefNo = invoice.InvoiceNumber,
+                    CustomerName = invoice.Customer.Name,
+                    PaymentMode = invoice.PaymentType.ToUpper(),
+                    Debit = invoice.TotalAmount, // Always debit the total amount
+                    Credit = (invoice.PaymentType.ToUpper() == "CASH" || invoice.PaymentType.ToUpper() == "UPI") ? invoice.TotalAmount : 0m, // Credit only for CASH/UPI
+                    Balance = 0m // Will be calculated below
+                }).ToList();
 
-                    ledgerData.Add(new
+                // Calculate running balance using SQL window function logic
+                decimal runningBalance = 0m;
+                for (int i = 0; i < ledgerEntries.Count; i++)
+                {
+                    runningBalance += ledgerEntries[i].Debit - ledgerEntries[i].Credit;
+                    ledgerEntries[i] = new
                     {
-                        Date = invoice.InvoiceDate.ToString("yyyy-MM-dd"),
-                        Type = "SALE",
-                        RefNo = invoice.InvoiceNumber,
-                        CustomerName = invoice.CustomerName,
-                        PaymentMode = invoice.PaymentType,
-                        Debit = debit,
-                        Credit = credit,
+                        Date = ledgerEntries[i].Date,
+                        Type = ledgerEntries[i].Type,
+                        RefNo = ledgerEntries[i].RefNo,
+                        CustomerName = ledgerEntries[i].CustomerName,
+                        PaymentMode = ledgerEntries[i].PaymentMode,
+                        Debit = ledgerEntries[i].Debit,
+                        Credit = ledgerEntries[i].Credit,
                         Balance = runningBalance
-                    });
+                    };
                 }
 
-                // Calculate summary with proper accounting
+                // Calculate summary
                 var summary = new
                 {
-                    TotalSales = invoices.Sum(i => i.TotalAmount),
-                    TotalReceived = invoices.Where(i => i.PaymentType == "Cash" || i.PaymentType == "UPI").Sum(i => i.TotalAmount),
-                    TotalOutstanding = invoices.Where(i => i.PaymentType == "Credit").Sum(i => i.TotalAmount),
-                    TransactionCount = invoices.Count,
+                    TotalSales = ledgerEntries.Sum(x => x.Debit),
+                    TotalReceived = ledgerEntries.Sum(x => x.Credit),
+                    TotalOutstanding = ledgerEntries.Sum(x => x.Debit - x.Credit),
+                    TotalTransactions = ledgerEntries.Count,
                     DateRange = new
                     {
                         From = fromDate?.ToString("yyyy-MM-dd") ?? "All Time",
@@ -662,89 +647,89 @@ namespace GrowURBuisness.API.Controllers
                     }
                 };
 
-                return Ok(new
-                {
-                    Data = ledgerData,
-                    Summary = summary
-                });
+                return Ok(new { Data = ledgerEntries, Summary = summary });
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { message = $"Error generating customer ledger report: {ex.Message}" });
+                return StatusCode(500, new { message = $"Error generating customer ledger: {ex.Message}" });
             }
         }
 
         // GET: api/reports/day-book
         [HttpGet("day-book")]
-        public async Task<ActionResult<object>> GetDayBookReport(
-            [FromQuery] DateTime? fromDate = null,
-            [FromQuery] DateTime? toDate = null)
+        public async Task<ActionResult<object>> GetDayBook([FromQuery] DateTime? fromDate = null, [FromQuery] DateTime? toDate = null)
         {
             try
             {
-                var query = new List<object>();
-
-                // Get Sales data
                 var salesQuery = _context.Invoices
                     .Include(i => i.Customer)
                     .AsQueryable();
 
-                if (fromDate.HasValue)
-                    salesQuery = salesQuery.Where(i => i.InvoiceDate.Date >= fromDate.Value.Date);
-
-                if (toDate.HasValue)
-                    salesQuery = salesQuery.Where(i => i.InvoiceDate.Date <= toDate.Value.Date);
-
-                var sales = await salesQuery
-                    .Select(i => new
-                    {
-                        Date = i.InvoiceDate.Date,
-                        Type = "SALE",
-                        RefNo = i.InvoiceNumber,
-                        Party = i.Customer.Name,
-                        Amount = i.TotalAmount
-                    })
-                    .ToListAsync();
-
-                // Get Purchase data
                 var purchaseQuery = _context.PurchaseOrders
                     .Include(po => po.Vendor)
                     .AsQueryable();
 
                 if (fromDate.HasValue)
+                {
+                    salesQuery = salesQuery.Where(i => i.InvoiceDate.Date >= fromDate.Value.Date);
                     purchaseQuery = purchaseQuery.Where(po => po.OrderDate.Date >= fromDate.Value.Date);
+                }
 
                 if (toDate.HasValue)
+                {
+                    salesQuery = salesQuery.Where(i => i.InvoiceDate.Date <= toDate.Value.Date);
                     purchaseQuery = purchaseQuery.Where(po => po.OrderDate.Date <= toDate.Value.Date);
+                }
 
-                var purchases = await purchaseQuery
-                    .Select(po => new
+                var sales = await salesQuery.ToListAsync();
+                var purchases = await purchaseQuery.ToListAsync();
+
+                // Combine sales and purchases using UNION ALL logic
+                var dayBookEntries = new List<object>();
+
+                // Add sales entries
+                foreach (var sale in sales)
+                {
+                    dayBookEntries.Add(new
                     {
-                        Date = po.OrderDate.Date,
-                        Type = "PURCHASE",
-                        RefNo = po.PurchaseOrderNumber,
-                        Party = po.Vendor.Name,
-                        Amount = po.TotalAmount
-                    })
-                    .ToListAsync();
+                        Date = sale.InvoiceDate,
+                        Type = "SALE",
+                        RefNo = sale.InvoiceNumber,
+                        Party = sale.Customer.Name,
+                        Amount = sale.TotalAmount
+                    });
+                }
 
-                // Combine sales and purchases using UNION ALL equivalent
-                var allTransactions = new List<object>();
-                allTransactions.AddRange(sales);
-                allTransactions.AddRange(purchases);
+                // Add purchase entries
+                foreach (var purchase in purchases)
+                {
+                    dayBookEntries.Add(new
+                    {
+                        Date = purchase.OrderDate,
+                        Type = "PURCHASE",
+                        RefNo = purchase.PurchaseOrderNumber,
+                        Party = purchase.Vendor.Name,
+                        Amount = purchase.TotalAmount
+                    });
+                }
 
                 // Sort by Date DESC
-                var sortedTransactions = allTransactions
-                    .OrderByDescending(t => ((dynamic)t).Date)
-                    .ThenBy(t => ((dynamic)t).RefNo)
+                var sortedEntries = dayBookEntries
+                    .OrderByDescending(x => ((dynamic)x).Date)
+                    .ThenBy(x => ((dynamic)x).Type)
+                    .ThenBy(x => ((dynamic)x).RefNo)
                     .ToList();
 
                 // Calculate summary
+                var totalSales = sales.Sum(s => s.TotalAmount);
+                var totalPurchase = purchases.Sum(p => p.TotalAmount);
+
                 var summary = new
                 {
-                    TotalSales = sales.Sum(s => s.Amount),
-                    TotalPurchase = purchases.Sum(p => p.Amount),
-                    TransactionCount = sortedTransactions.Count,
+                    TotalSales = totalSales,
+                    TotalPurchase = totalPurchase,
+                    NetDifference = totalSales - totalPurchase,
+                    TotalTransactions = sortedEntries.Count,
                     DateRange = new
                     {
                         From = fromDate?.ToString("yyyy-MM-dd") ?? "All Time",
@@ -752,58 +737,117 @@ namespace GrowURBuisness.API.Controllers
                     }
                 };
 
-                return Ok(new
-                {
-                    Data = sortedTransactions,
-                    Summary = summary
-                });
+                return Ok(new { Data = sortedEntries, Summary = summary });
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { message = $"Error generating day book report: {ex.Message}" });
+                return StatusCode(500, new { message = $"Error generating day book: {ex.Message}" });
+            }
+        }
+
+        // GET: api/reports/item-wise-sales
+        [HttpGet("item-wise-sales")]
+        public async Task<ActionResult<object>> GetItemWiseSalesReport([FromQuery] DateTime? fromDate = null, [FromQuery] DateTime? toDate = null, [FromQuery] int? itemId = null)
+        {
+            try
+            {
+                var query = _context.InvoiceItems
+                    .Include(ii => ii.Invoice)
+                    .Include(ii => ii.Item)
+                    .AsQueryable();
+
+                if (fromDate.HasValue)
+                {
+                    query = query.Where(ii => ii.Invoice.InvoiceDate.Date >= fromDate.Value.Date);
+                }
+
+                if (toDate.HasValue)
+                {
+                    query = query.Where(ii => ii.Invoice.InvoiceDate.Date <= toDate.Value.Date);
+                }
+
+                if (itemId.HasValue)
+                {
+                    query = query.Where(ii => ii.ItemId == itemId.Value);
+                }
+
+                var itemSales = await query
+                    .Where(ii => ii.Item.IsActive)
+                    .GroupBy(ii => new { ii.Item.Id, ii.Item.Name })
+                    .Select(g => new
+                    {
+                        ItemId = g.Key.Id,
+                        ItemName = g.Key.Name,
+                        QtySold = g.Sum(ii => ii.Quantity),
+                        TotalSales = g.Sum(ii => ii.TotalAmount),
+                        AvgRate = g.Sum(ii => ii.TotalAmount) / g.Sum(ii => ii.Quantity)
+                    })
+                    .OrderByDescending(x => x.TotalSales)
+                    .ToListAsync();
+
+                // Calculate summary
+                var summary = new
+                {
+                    TotalItems = itemSales.Count,
+                    TotalQuantitySold = itemSales.Sum(x => x.QtySold),
+                    TotalRevenue = itemSales.Sum(x => x.TotalSales),
+                    AverageItemPrice = itemSales.Any() ? itemSales.Average(x => x.AvgRate) : 0,
+                    DateRange = new
+                    {
+                        From = fromDate?.ToString("yyyy-MM-dd") ?? "All Time",
+                        To = toDate?.ToString("yyyy-MM-dd") ?? "All Time"
+                    }
+                };
+
+                return Ok(new { Data = itemSales, Summary = summary });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = $"Error generating item-wise sales report: {ex.Message}" });
             }
         }
 
         // GET: api/reports/top-customers
         [HttpGet("top-customers")]
-        public async Task<ActionResult<object>> GetTopCustomersReport(
-            [FromQuery] DateTime? fromDate = null,
-            [FromQuery] DateTime? toDate = null)
+        public async Task<ActionResult<object>> GetTopCustomersReport([FromQuery] DateTime? fromDate = null, [FromQuery] DateTime? toDate = null)
         {
             try
             {
-                // Start with base query
                 var query = _context.Invoices
                     .Include(i => i.Customer)
+                    .Where(i => i.Customer.IsActive)
                     .AsQueryable();
 
-                // Apply date filters
                 if (fromDate.HasValue)
+                {
                     query = query.Where(i => i.InvoiceDate.Date >= fromDate.Value.Date);
+                }
 
                 if (toDate.HasValue)
+                {
                     query = query.Where(i => i.InvoiceDate.Date <= toDate.Value.Date);
+                }
 
-                // Group by customer and calculate metrics
-                var customerData = await query
-                    .GroupBy(i => i.Customer)
+                var topCustomers = await query
+                    .GroupBy(i => new { i.Customer.Id, i.Customer.Name })
                     .Select(g => new
                     {
+                        CustomerId = g.Key.Id,
                         CustomerName = g.Key.Name,
                         TotalOrders = g.Count(),
                         TotalSales = g.Sum(i => i.TotalAmount),
                         AvgOrderValue = g.Sum(i => i.TotalAmount) / g.Count()
                     })
-                    .OrderByDescending(c => c.TotalSales)
+                    .OrderByDescending(x => x.TotalSales)
                     .ToListAsync();
 
                 // Calculate summary
                 var summary = new
                 {
-                    TotalCustomers = customerData.Count,
-                    TotalOrders = customerData.Sum(c => c.TotalOrders),
-                    TotalSales = customerData.Sum(c => c.TotalSales),
-                    AvgOrderValue = customerData.Count > 0 ? customerData.Sum(c => c.TotalSales) / customerData.Sum(c => c.TotalOrders) : 0,
+                    TotalCustomers = topCustomers.Count,
+                    TotalOrders = topCustomers.Sum(x => x.TotalOrders),
+                    TotalRevenue = topCustomers.Sum(x => x.TotalSales),
+                    AverageOrderValue = topCustomers.Any() ? topCustomers.Average(x => x.AvgOrderValue) : 0,
                     DateRange = new
                     {
                         From = fromDate?.ToString("yyyy-MM-dd") ?? "All Time",
@@ -811,11 +855,7 @@ namespace GrowURBuisness.API.Controllers
                     }
                 };
 
-                return Ok(new
-                {
-                    Data = customerData,
-                    Summary = summary
-                });
+                return Ok(new { Data = topCustomers, Summary = summary });
             }
             catch (Exception ex)
             {
@@ -825,51 +865,51 @@ namespace GrowURBuisness.API.Controllers
 
         // GET: api/reports/purchase-item-wise
         [HttpGet("purchase-item-wise")]
-        public async Task<ActionResult<object>> GetPurchaseItemWiseReport(
-            [FromQuery] DateTime? fromDate = null,
-            [FromQuery] DateTime? toDate = null,
-            [FromQuery] int? itemId = null)
+        public async Task<ActionResult<object>> GetPurchaseItemWiseReport([FromQuery] DateTime? fromDate = null, [FromQuery] DateTime? toDate = null, [FromQuery] int? itemId = null)
         {
             try
             {
-                // Start with base query
                 var query = _context.PurchaseOrderItems
-                    .Include(poi => poi.Item)
                     .Include(poi => poi.PurchaseOrder)
+                    .Include(poi => poi.Item)
                     .AsQueryable();
 
-                // Apply date filters
                 if (fromDate.HasValue)
+                {
                     query = query.Where(poi => poi.PurchaseOrder.OrderDate.Date >= fromDate.Value.Date);
+                }
 
                 if (toDate.HasValue)
+                {
                     query = query.Where(poi => poi.PurchaseOrder.OrderDate.Date <= toDate.Value.Date);
+                }
 
-                // Apply item filter
                 if (itemId.HasValue)
+                {
                     query = query.Where(poi => poi.ItemId == itemId.Value);
+                }
 
-                // Group by item and calculate metrics
-                var itemData = await query
-                    .Where(poi => poi.Item != null && poi.PurchaseOrder != null)
-                    .GroupBy(poi => poi.Item)
+                var purchaseItemSales = await query
+                    .Where(poi => poi.Item.IsActive)
+                    .GroupBy(poi => new { poi.Item.Id, poi.Item.Name })
                     .Select(g => new
                     {
+                        ItemId = g.Key.Id,
                         ItemName = g.Key.Name,
                         QtyPurchased = g.Sum(poi => poi.Quantity),
                         TotalPurchase = g.Sum(poi => poi.TotalAmount),
-                        AvgRate = g.Sum(poi => poi.TotalAmount) / g.Sum(poi => poi.Quantity)
+                        AvgPurchaseRate = g.Sum(poi => poi.TotalAmount) / g.Sum(poi => poi.Quantity)
                     })
-                    .OrderByDescending(i => i.TotalPurchase)
+                    .OrderByDescending(x => x.TotalPurchase)
                     .ToListAsync();
 
                 // Calculate summary
                 var summary = new
                 {
-                    TotalItems = itemData.Count,
-                    TotalQtyPurchased = itemData.Sum(i => i.QtyPurchased),
-                    TotalPurchase = itemData.Sum(i => i.TotalPurchase),
-                    AvgRate = itemData.Count > 0 ? itemData.Sum(i => i.TotalPurchase) / itemData.Sum(i => i.QtyPurchased) : 0,
+                    TotalItems = purchaseItemSales.Count,
+                    TotalQuantityPurchased = purchaseItemSales.Sum(x => x.QtyPurchased),
+                    TotalPurchaseAmount = purchaseItemSales.Sum(x => x.TotalPurchase),
+                    AveragePurchaseRate = purchaseItemSales.Any() ? purchaseItemSales.Average(x => x.AvgPurchaseRate) : 0,
                     DateRange = new
                     {
                         From = fromDate?.ToString("yyyy-MM-dd") ?? "All Time",
@@ -877,11 +917,7 @@ namespace GrowURBuisness.API.Controllers
                     }
                 };
 
-                return Ok(new
-                {
-                    Data = itemData,
-                    Summary = summary
-                });
+                return Ok(new { Data = purchaseItemSales, Summary = summary });
             }
             catch (Exception ex)
             {
@@ -891,214 +927,61 @@ namespace GrowURBuisness.API.Controllers
 
         // GET: api/reports/supplier-ledger
         [HttpGet("supplier-ledger")]
-        public async Task<ActionResult<object>> GetSupplierLedgerReport(
-            [FromQuery] DateTime? fromDate = null,
-            [FromQuery] DateTime? toDate = null,
-            [FromQuery] int? vendorId = null)
+        public async Task<ActionResult<object>> GetSupplierLedger(DateTime? fromDate, DateTime? toDate, int? supplierId)
         {
             try
             {
-                // Start with base query for purchase orders
                 var query = _context.PurchaseOrders
                     .Include(po => po.Vendor)
                     .AsQueryable();
 
-                // Apply date filters
-                if (fromDate.HasValue)
-                    query = query.Where(po => po.OrderDate.Date >= fromDate.Value.Date);
+                // Apply filters
+                if (fromDate.HasValue) query = query.Where(po => po.OrderDate.Date >= fromDate.Value.Date);
+                if (toDate.HasValue) query = query.Where(po => po.OrderDate.Date <= toDate.Value.Date);
+                if (supplierId.HasValue) query = query.Where(po => po.VendorId == supplierId.Value);
 
-                if (toDate.HasValue)
-                    query = query.Where(po => po.OrderDate.Date <= toDate.Value.Date);
+                var purchaseOrders = await query.OrderBy(po => po.OrderDate).ThenBy(po => po.PurchaseOrderNumber).ToListAsync();
 
-                // Apply supplier filter
-                if (vendorId.HasValue)
-                    query = query.Where(po => po.VendorId == vendorId.Value);
+                var ledgerEntries = purchaseOrders.Select(purchaseOrder => new {
+                    Date = purchaseOrder.OrderDate,
+                    Type = "PURCHASE",
+                    RefNo = purchaseOrder.PurchaseOrderNumber,
+                    SupplierName = purchaseOrder.Vendor.Name,
+                    Debit = 0m,
+                    Credit = purchaseOrder.TotalAmount,
+                    Balance = 0m
+                }).ToList();
 
-                // Get the filtered purchase orders
-                var purchaseOrders = await query
-                    .OrderBy(po => po.OrderDate)
-                    .ThenBy(po => po.PurchaseOrderNumber)
-                    .Select(po => new
-                    {
-                        po.Id,
-                        OrderDate = po.OrderDate.Date,
-                        PurchaseOrderNumber = po.PurchaseOrderNumber,
-                        VendorName = po.Vendor.Name,
-                        TotalAmount = po.TotalAmount
-                    })
-                    .ToListAsync();
-
-                // Transform to ledger format with running balance
-                var ledgerData = new List<object>();
-                decimal runningBalance = 0;
-
-                foreach (var purchase in purchaseOrders)
+                // Calculate running balance
+                decimal runningBalance = 0m;
+                for (int i = 0; i < ledgerEntries.Count; i++)
                 {
-                    // For purchases: Credit = TotalAmount, Debit = 0 (supplier owes us items)
-                    decimal debit = 0;
-                    decimal credit = purchase.TotalAmount;
-                    
-                    runningBalance += credit - debit;
-
-                    ledgerData.Add(new
-                    {
-                        Date = purchase.OrderDate.ToString("yyyy-MM-dd"),
-                        Type = "PURCHASE",
-                        RefNo = purchase.PurchaseOrderNumber,
-                        SupplierName = purchase.VendorName,
-                        Debit = debit,
-                        Credit = credit,
+                    runningBalance += ledgerEntries[i].Credit - ledgerEntries[i].Debit;
+                    ledgerEntries[i] = new {
+                        ledgerEntries[i].Date, 
+                        ledgerEntries[i].Type, 
+                        ledgerEntries[i].RefNo,
+                        ledgerEntries[i].SupplierName,
+                        ledgerEntries[i].Debit, 
+                        ledgerEntries[i].Credit,
                         Balance = runningBalance
-                    });
+                    };
                 }
 
-                // Calculate summary
                 var summary = new
                 {
-                    TotalPurchases = purchaseOrders.Sum(po => po.TotalAmount),
-                    TotalOutstanding = purchaseOrders.Sum(po => po.TotalAmount), // All purchases are outstanding until paid
-                    TransactionCount = purchaseOrders.Count,
-                    DateRange = new
-                    {
-                        From = fromDate?.ToString("yyyy-MM-dd") ?? "All Time",
-                        To = toDate?.ToString("yyyy-MM-dd") ?? "All Time"
-                    }
+                    TotalPurchases = ledgerEntries.Sum(x => x.Credit),
+                    TotalPaid = ledgerEntries.Sum(x => x.Debit),
+                    TotalOutstanding = ledgerEntries.Sum(x => x.Credit - x.Debit),
+                    TotalTransactions = ledgerEntries.Count,
+                    DateRange = new { From = fromDate?.ToString("yyyy-MM-dd") ?? "All Time", To = toDate?.ToString("yyyy-MM-dd") ?? "All Time" }
                 };
 
-                return Ok(new
-                {
-                    Data = ledgerData,
-                    Summary = summary
-                });
+                return Ok(new { Data = ledgerEntries, Summary = summary });
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { message = $"Error generating supplier ledger report: {ex.Message}" });
-            }
-        }
-
-        // GET: api/reports/item-wise-sales
-        [HttpGet("item-wise-sales")]
-        public async Task<ActionResult<object>> GetItemWiseSalesReport(
-            [FromQuery] DateTime? fromDate = null,
-            [FromQuery] DateTime? toDate = null,
-            [FromQuery] int? itemId = null)
-        {
-            try
-            {
-                // Start with base query
-                var query = _context.InvoiceItems
-                    .Include(ii => ii.Item)
-                    .Include(ii => ii.Invoice)
-                    .AsQueryable();
-
-                // Apply date filters
-                if (fromDate.HasValue)
-                    query = query.Where(ii => ii.Invoice.InvoiceDate.Date >= fromDate.Value.Date);
-
-                if (toDate.HasValue)
-                    query = query.Where(ii => ii.Invoice.InvoiceDate.Date <= toDate.Value.Date);
-
-                // Apply item filter
-                if (itemId.HasValue)
-                    query = query.Where(ii => ii.ItemId == itemId.Value);
-
-                // Group by item and calculate metrics
-                var itemData = await query
-                    .Where(ii => ii.Item != null && ii.Invoice != null)
-                    .GroupBy(ii => ii.Item)
-                    .Select(g => new
-                    {
-                        ItemName = g.Key.Name,
-                        QtySold = g.Sum(ii => ii.Quantity),
-                        TotalSales = g.Sum(ii => ii.TotalAmount),
-                        AvgRate = g.Sum(ii => ii.TotalAmount) / g.Sum(ii => ii.Quantity)
-                    })
-                    .OrderByDescending(i => i.TotalSales)
-                    .ToListAsync();
-
-                // Calculate summary
-                var summary = new
-                {
-                    TotalItems = itemData.Count,
-                    TotalQtySold = itemData.Sum(i => i.QtySold),
-                    TotalSales = itemData.Sum(i => i.TotalSales),
-                    AvgRate = itemData.Count > 0 ? itemData.Sum(i => i.TotalSales) / itemData.Sum(i => i.QtySold) : 0,
-                    DateRange = new
-                    {
-                        From = fromDate?.ToString("yyyy-MM-dd") ?? "All Time",
-                        To = toDate?.ToString("yyyy-MM-dd") ?? "All Time"
-                    }
-                };
-
-                return Ok(new
-                {
-                    Data = itemData,
-                    Summary = summary
-                });
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new { message = $"Error generating item-wise sales report: {ex.Message}" });
-            }
-        }
-
-        // GET: api/reports/top-suppliers
-        [HttpGet("top-suppliers")]
-        public async Task<ActionResult<object>> GetTopSuppliersReport(
-            [FromQuery] DateTime? fromDate = null,
-            [FromQuery] DateTime? toDate = null)
-        {
-            try
-            {
-                // Start with base query
-                var query = _context.PurchaseOrders
-                    .Include(po => po.Vendor)
-                    .AsQueryable();
-
-                // Apply date filters
-                if (fromDate.HasValue)
-                    query = query.Where(po => po.OrderDate.Date >= fromDate.Value.Date);
-
-                if (toDate.HasValue)
-                    query = query.Where(po => po.OrderDate.Date <= toDate.Value.Date);
-
-                // Group by supplier and calculate metrics
-                var supplierData = await query
-                    .GroupBy(po => po.Vendor)
-                    .Select(g => new
-                    {
-                        SupplierName = g.Key.Name,
-                        TotalOrders = g.Count(),
-                        TotalPurchase = g.Sum(po => po.TotalAmount),
-                        AvgOrderValue = g.Sum(po => po.TotalAmount) / g.Count()
-                    })
-                    .OrderByDescending(s => s.TotalPurchase)
-                    .ToListAsync();
-
-                // Calculate summary
-                var summary = new
-                {
-                    TotalSuppliers = supplierData.Count,
-                    TotalOrders = supplierData.Sum(s => s.TotalOrders),
-                    TotalPurchase = supplierData.Sum(s => s.TotalPurchase),
-                    AvgOrderValue = supplierData.Count > 0 ? supplierData.Sum(s => s.TotalPurchase) / supplierData.Sum(s => s.TotalOrders) : 0,
-                    DateRange = new
-                    {
-                        From = fromDate?.ToString("yyyy-MM-dd") ?? "All Time",
-                        To = toDate?.ToString("yyyy-MM-dd") ?? "All Time"
-                    }
-                };
-
-                return Ok(new
-                {
-                    Data = supplierData,
-                    Summary = summary
-                });
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new { message = $"Error generating top suppliers report: {ex.Message}" });
+                return StatusCode(500, new { message = $"Error generating supplier ledger: {ex.Message}" });
             }
         }
     }

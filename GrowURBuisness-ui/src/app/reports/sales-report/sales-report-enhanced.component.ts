@@ -4,7 +4,7 @@ import { ReportsService, SalesReportItem } from '../../services/reports.service'
 
 @Component({
   selector: 'app-sales-report-enhanced',
-  templateUrl: './sales-report.component.html',
+  templateUrl: './sales-report-enhanced.component.html',
   styleUrls: ['./sales-report.component.scss']
 })
 export class SalesReportEnhancedComponent implements OnInit {
@@ -18,6 +18,7 @@ export class SalesReportEnhancedComponent implements OnInit {
   totalInvoices: number = 0;
 
   customers: any[] = [];
+  topCustomers: any[] = [];
 
   constructor(private fb: FormBuilder, private reportsService: ReportsService) {
     this.filterForm = this.fb.group({
@@ -93,5 +94,12 @@ export class SalesReportEnhancedComponent implements OnInit {
   exportToExcel(): void {
     // Export functionality to be implemented
     console.log('Export to Excel functionality not yet implemented');
+  }
+
+  formatCurrency(amount: number): string {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD'
+    }).format(amount);
   }
 }

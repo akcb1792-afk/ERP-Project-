@@ -1,12 +1,13 @@
-<div class="container">
-  <div class="header-section">
-    <h2>Supplier Ledger Report</h2>
+<div class="supplier-ledger-container">
+  <!-- Header -->
+  <div class="page-header">
+    <h1 class="page-title">{{ title }}</h1>
     <div class="header-buttons">
-      <button mat-raised-button color="accent" (click)="backToReports()" class="back-btn">
+      <button mat-raised-button color="accent" (click)="goBackToReports()" class="back-btn">
         <mat-icon>arrow_back</mat-icon>
         Back to Reports
       </button>
-      <button mat-raised-button color="primary" (click)="exportToExcel()" class="export-btn">
+      <button mat-raised-button color="primary" (click)="exportToExcel()" class="export-btn" [disabled]="ledgerData.length === 0">
         <mat-icon>file_download</mat-icon>
         Export to Excel
       </button>
@@ -19,60 +20,89 @@
       <mat-card-title>Filters</mat-card-title>
     </mat-card-header>
     <mat-card-content>
-      <form [formGroup]="filterForm" class="filter-form">
-        <div class="filter-row">
-          <!-- From Date -->
+      <form [formGroup]="filterForm" class="filters-form">
+        <div class="filters-row">
           <mat-form-field appearance="outline" class="filter-field">
             <mat-label>From Date</mat-label>
-            <input matInput [matDatepicker]="fromPicker" formControlName="fromDate">
-            <mat-datepicker-toggle matSuffix [for]="fromPicker"></mat-datepicker-toggle>
-            <mat-datepicker #fromPicker></mat-datepicker>
+            <input matInput [matDatepicker]="fromDatePicker" formControlName="fromDate">
+            <mat-datepicker-toggle matSuffix [for]="fromDatePicker"></mat-datepicker-toggle>
+            <mat-datepicker #fromDatePicker></mat-datepicker>
           </mat-form-field>
 
-          <!-- To Date -->
           <mat-form-field appearance="outline" class="filter-field">
             <mat-label>To Date</mat-label>
-            <input matInput [matDatepicker]="toPicker" formControlName="toDate">
-            <mat-datepicker-toggle matSuffix [for]="toPicker"></mat-datepicker-toggle>
-            <mat-datepicker #toPicker></mat-datepicker>
+            <input matInput [matDatepicker]="toDatePicker" formControlName="toDate">
+            <mat-datepicker-toggle matSuffix [for]="toDatePicker"></mat-datepicker-toggle>
+            <mat-datepicker #toDatePicker></mat-datepicker>
           </mat-form-field>
 
-          <!-- Supplier -->
           <mat-form-field appearance="outline" class="filter-field supplier-field">
             <mat-label>Supplier</mat-label>
-            <mat-select formControlName="vendorId">
+            <mat-select formControlName="supplierId">
               <mat-option value="">All Suppliers</mat-option>
               <mat-option *ngFor="let supplier of filteredSuppliers" [value]="supplier.id">
                 {{ supplier.name }}
               </mat-option>
             </mat-select>
-            <input matInput 
-                   placeholder="Search suppliers..." 
-                   (input)="onSupplierSearch($event)"
-                   class="supplier-search">
           </mat-form-field>
+        </div>
 
-          <!-- Search Actions -->
-          <div class="filter-actions">
-            <button mat-raised-button color="primary" (click)="onSearch()" class="search-btn">
-              <mat-icon>search</mat-icon>
-              Search
-            </button>
-            <button mat-stroked-button color="accent" (click)="onReset()" class="reset-btn">
-              <mat-icon>refresh</mat-icon>
-              Reset
-            </button>
-          </div>
+        <div class="filter-actions" *ngIf="hasError">
+          <mat-error class="error-message">{{ errorMessage }}</mat-error>
+        </div>
+
+        <div class="filter-actions">
+          <button mat-raised-button color="primary" (click)="onSearch()" [disabled]="hasError">
+            <mat-icon>search</mat-icon>
+            Search
+          </button>
+          <button mat-stroked-button (click)="resetFilters()">
+            <mat-icon>refresh</mat-icon>
+            Reset
+          </button>
         </div>
       </form>
-
-      <!-- Error Message -->
-      <div class="error-message" *ngIf="hasError">
-        <mat-icon>warning</mat-icon>
-        {{ errorMessage }}
-      </div>
     </mat-card-content>
   </mat-card>
+
+  <!-- Summary Cards -->
+  <div class="summary-cards" *ngIf="!isLoading && ledgerData.length > 0">
+    <mat-card class="summary-card">
+      <mat-card-content>
+        <div class="summary-content">
+          <div class="summary-label">Total Purchases</div>
+          <div class="summary-value purchases">{{ formatCurrency(summary.totalPurchases) }}</div>
+        </div>
+      </mat-card-content>
+    </mat-card>
+
+    <mat-card class="summary-card">
+      <mat-card-content>
+        <div class="summary-content">
+          <div class="summary-label">Total Paid</div>
+          <div class="summary-value paid">{{ formatCurrency(summary.totalPaid) }}</div>
+        </div>
+      </mat-card-content>
+    </mat-card>
+
+    <mat-card class="summary-card">
+      <mat-card-content>
+        <div class="summary-content">
+          <div class="summary-label">Total Outstanding</div>
+          <div class="summary-value outstanding">{{ formatCurrency(summary.totalOutstanding) }}</div>
+        </div>
+      </mat-card-content>
+    </mat-card>
+
+    <mat-card class="summary-card">
+      <mat-card-content>
+        <div class="summary-content">
+          <div class="summary-label">Total Transactions</div>
+          <div class="summary-value transactions">{{ summary.totalTransactions }}</div>
+        </div>
+      </mat-card-content>
+    </mat-card>
+  </div>
 
   <!-- Loading State -->
   <div class="loading-container" *ngIf="isLoading">
@@ -80,140 +110,71 @@
     <p>Loading supplier ledger data...</p>
   </div>
 
-  <!-- Summary Cards -->
-  <div class="summary-grid" *ngIf="!isLoading && summary">
-    <mat-card class="summary-card">
-      <mat-card-header>
-        <mat-card-title>
-          <mat-icon>shopping_cart</mat-icon>
-          Total Purchases
-        </mat-card-title>
-      </mat-card-header>
-      <mat-card-content>
-        <div class="summary-value">{{ summary.TotalPurchases | number:'1.2-2' }}</div>
-        <div class="summary-label">Purchase Amount</div>
-      </mat-card-content>
-    </mat-card>
-
-    <mat-card class="summary-card">
-      <mat-card-header>
-        <mat-card-title>
-          <mat-icon>account_balance</mat-icon>
-          Total Outstanding
-        </mat-card-title>
-      </mat-card-header>
-      <mat-card-content>
-        <div class="summary-value">{{ summary.TotalOutstanding | number:'1.2-2' }}</div>
-        <div class="summary-label">Outstanding Balance</div>
-      </mat-card-content>
-    </mat-card>
-
-    <mat-card class="summary-card">
-      <mat-card-header>
-        <mat-card-title>
-          <mat-icon>receipt_long</mat-icon>
-          Transactions
-        </mat-card-title>
-      </mat-card-header>
-      <mat-card-content>
-        <div class="summary-value">{{ summary.TransactionCount }}</div>
-        <div class="summary-label">Purchase Transactions</div>
-      </mat-card-content>
-    </mat-card>
+  <!-- No Data State -->
+  <div class="no-data-container" *ngIf="!isLoading && ledgerData.length === 0">
+    <mat-icon class="no-data-icon">account_balance</mat-icon>
+    <h3>No Data Found</h3>
+    <p>No supplier ledger data found for the selected criteria.</p>
   </div>
 
-  <!-- Date Range Info -->
-  <div class="date-range-info" *ngIf="!isLoading && summary && summary.DateRange">
-    <strong>Date Range:</strong> {{ summary.DateRange.From }} to {{ summary.DateRange.To }}
-  </div>
-
-  <!-- Supplier Ledger Table -->
-  <div class="table-container" *ngIf="!isLoading">
+  <!-- Data Table -->
+  <div class="table-container" *ngIf="!isLoading && ledgerData.length > 0">
     <mat-card class="table-card">
-      <mat-card-header>
-        <mat-card-title>Supplier Ledger</mat-card-title>
-        <mat-card-subtitle>{{ supplierLedgerData.length }} transactions found</mat-card-subtitle>
-      </mat-card-header>
       <mat-card-content>
-        <div class="table-wrapper">
-          <table mat-table [dataSource]="dataSource" class="supplier-ledger-table">
-            <!-- Date Column -->
-            <ng-container matColumnDef="Date">
-              <th mat-header-cell *matHeaderCellDef>Date</th>
-              <td mat-cell *matCellDef="let row">
-                {{ row.Date | date:'mediumDate' }}
-              </td>
-            </ng-container>
+        <table mat-table [dataSource]="dataSource" class="supplier-ledger-table">
+          <!-- Date Column -->
+          <ng-container matColumnDef="date">
+            <th mat-header-cell *matHeaderCellDef>Date</th>
+            <td mat-cell *matCellDef="let element">{{ formatDate(element.date) }}</td>
+          </ng-container>
 
-            <!-- Type Column -->
-            <ng-container matColumnDef="Type">
-              <th mat-header-cell *matHeaderCellDef>Type</th>
-              <td mat-cell *matCellDef="let row">
-                <span class="transaction-type">{{ row.Type }}</span>
-              </td>
-            </ng-container>
+          <!-- Type Column -->
+          <ng-container matColumnDef="type">
+            <th mat-header-cell *matHeaderCellDef>Type</th>
+            <td mat-cell *matCellDef="let element">
+              <span class="type-badge purchase">{{ element.type }}</span>
+            </td>
+          </ng-container>
 
-            <!-- Ref No Column -->
-            <ng-container matColumnDef="RefNo">
-              <th mat-header-cell *matHeaderCellDef>Ref No</th>
-              <td mat-cell *matCellDef="let row">
-                <span class="ref-no">{{ row.RefNo }}</span>
-              </td>
-            </ng-container>
+          <!-- Ref No Column -->
+          <ng-container matColumnDef="refNo">
+            <th mat-header-cell *matHeaderCellDef>Ref No</th>
+            <td mat-cell *matCellDef="let element">{{ element.refNo }}</td>
+          </ng-container>
 
-            <!-- Supplier Name Column -->
-            <ng-container matColumnDef="SupplierName">
-              <th mat-header-cell *matHeaderCellDef>Supplier</th>
-              <td mat-cell *matCellDef="let row">
-                <span class="supplier-name">{{ row.SupplierName }}</span>
-              </td>
-            </ng-container>
+          <!-- Supplier Name Column -->
+          <ng-container matColumnDef="supplierName">
+            <th mat-header-cell *matHeaderCellDef>Supplier Name</th>
+            <td mat-cell *matCellDef="let element">{{ element.supplierName }}</td>
+          </ng-container>
 
-            <!-- Debit Column -->
-            <ng-container matColumnDef="Debit">
-              <th mat-header-cell *matHeaderCellDef class="text-right">Debit</th>
-              <td mat-cell *matCellDef="let row" class="text-right">
-                <span class="debit-amount" *ngIf="row.Debit > 0">
-                  {{ row.Debit | number:'1.2-2' }}
-                </span>
-              </td>
-            </ng-container>
+          <!-- Debit Column -->
+          <ng-container matColumnDef="debit">
+            <th mat-header-cell *matHeaderCellDef class="numeric-column">Debit</th>
+            <td mat-cell *matCellDef="let element" class="numeric-column debit-column">
+              {{ formatCurrency(element.debit) }}
+            </td>
+          </ng-container>
 
-            <!-- Credit Column -->
-            <ng-container matColumnDef="Credit">
-              <th mat-header-cell *matHeaderCellDef class="text-right">Credit</th>
-              <td mat-cell *matCellDef="let row" class="text-right">
-                <span class="credit-amount" *ngIf="row.Credit > 0">
-                  {{ row.Credit | number:'1.2-2' }}
-                </span>
-              </td>
-            </ng-container>
+          <!-- Credit Column -->
+          <ng-container matColumnDef="credit">
+            <th mat-header-cell *matHeaderCellDef class="numeric-column">Credit</th>
+            <td mat-cell *matCellDef="let element" class="numeric-column credit-column">
+              {{ formatCurrency(element.credit) }}
+            </td>
+          </ng-container>
 
-            <!-- Balance Column -->
-            <ng-container matColumnDef="Balance">
-              <th mat-header-cell *matHeaderCellDef class="text-right">Balance</th>
-              <td mat-cell *matCellDef="let row" class="text-right">
-                <span class="balance-amount" [ngClass]="{
-                  'positive': row.Balance > 0,
-                  'zero': row.Balance === 0,
-                  'negative': row.Balance < 0
-                }">
-                  {{ row.Balance | number:'1.2-2' }}
-                </span>
-              </td>
-            </ng-container>
+          <!-- Balance Column -->
+          <ng-container matColumnDef="balance">
+            <th mat-header-cell *matHeaderCellDef class="numeric-column">Balance</th>
+            <td mat-cell *matCellDef="let element" class="numeric-column balance-column">
+              <strong>{{ formatCurrency(element.balance) }}</strong>
+            </td>
+          </ng-container>
 
-            <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
-            <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
-          </table>
-        </div>
-
-        <!-- No Data Message -->
-        <div class="no-data" *ngIf="!isLoading && supplierLedgerData.length === 0">
-          <mat-icon>receipt_long</mat-icon>
-          <h3>No Purchase Transactions Found</h3>
-          <p>No purchase transactions found for the selected criteria.</p>
-        </div>
+          <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+          <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+        </table>
       </mat-card-content>
     </mat-card>
   </div>

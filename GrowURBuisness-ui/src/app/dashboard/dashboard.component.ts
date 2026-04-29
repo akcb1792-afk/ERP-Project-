@@ -7,9 +7,16 @@ import { DashboardService, DashboardStats, RecentInvoice, RecentOrder, LowStockI
   styleUrls: ['./dashboard.component.scss']
 })
 export class DashboardComponent implements OnInit {
-  title = 'ERP Dashboard';
+  title = 'Dashboard';
   
   stats: DashboardStats = {
+    todaysSell: 0,
+    todaysPurchase: 0,
+    todaysSellOrder: 0,
+    todaysPurchaseOrder: 0,
+    lowStockItems: 0,
+    thisMonthTotalSell: 0,
+    thisMonthTotalPurchase: 0,
     totalOrders: 0,
     totalQuantitySold: 0,
     totalPurchase: 0,
@@ -24,13 +31,15 @@ export class DashboardComponent implements OnInit {
     totalSalesValue: 0,
     totalPurchaseValue: 0,
     profit: 0,
-    lowStockItems: 0,
     pendingInvoices: 0
   };
 
   recentInvoices: RecentInvoice[] = [];
   recentOrders: RecentOrder[] = [];
   lowStockItems: LowStockItem[] = [];
+  latestSalesOrders: any[] = [];
+  latestPurchaseOrders: any[] = [];
+  topLowestStock: any[] = [];
   isLoading = true;
   error: string | null = null;
 
@@ -57,6 +66,9 @@ export class DashboardComponent implements OnInit {
       this.recentInvoices = data.recentInvoices;
       this.recentOrders = data.recentOrders;
       this.lowStockItems = data.lowStockItems;
+      this.latestSalesOrders = data.latestSalesOrders;
+      this.latestPurchaseOrders = data.latestPurchaseOrders;
+      this.topLowestStock = data.topLowestStock;
       this.isLoading = false;
     }, (error) => {
       this.error = 'Failed to load dashboard data';

@@ -16,15 +16,18 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBarModule } from '@angular/material/snack-bar';
+import { MatDialogModule } from '@angular/material/dialog';
 
 // Components
 import { CreateInvoiceComponent } from './create-invoice/create-invoice.component';
 import { SalesListComponent } from './sales-list/sales-list.component';
+import { EditInvoiceDialogComponent } from './sales-list/edit-invoice-dialog.component';
 
 @NgModule({
   declarations: [
     CreateInvoiceComponent,
-    SalesListComponent
+    SalesListComponent,
+    EditInvoiceDialogComponent
   ],
   imports: [
     CommonModule,
@@ -42,7 +45,8 @@ import { SalesListComponent } from './sales-list/sales-list.component';
     MatSelectModule,
     MatDatepickerModule,
     MatProgressSpinnerModule,
-    MatSnackBarModule
+    MatSnackBarModule,
+    MatDialogModule
   ]
 })
 export class SalesModule { }

@@ -1,9 +1,31 @@
 import { Component, OnInit } from '@angular/core';
-import { FormBuilder, FormGroup } from '@angular/forms';
+import { FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
-import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatTableDataSource } from '@angular/material/table';
+import { Router } from '@angular/router';
 import { environment } from '../../../environments/environment';
+
+export interface CustomerLedgerEntry {
+  date: string;
+  type: string;
+  refNo: string;
+  customerName: string;
+  paymentMode: string;
+  debit: number;
+  credit: number;
+  balance: number;
+}
+
+export interface CustomerLedgerSummary {
+  TotalSales: number;
+  TotalReceived: number;
+  TotalOutstanding: number;
+  TotalTransactions: number;
+  DateRange: {
+    From: string;
+    To: string;
+  };
+}
 
 export interface Customer {
   id: number;
@@ -13,62 +35,39 @@ export interface Customer {
   customerType: string;
 }
 
-export interface LedgerData {
-  Date: string;
-  Type: string;
-  RefNo: string;
-  CustomerName: string;
-  PaymentMode: string;
-  Debit: number;
-  Credit: number;
-  Balance: number;
-}
-
-export interface LedgerSummary {
-  TotalSales: number;
-  TotalReceived: number;
-  TotalOutstanding: number;
-  TransactionCount: number;
-  DateRange: {
-    From: string;
-    To: string;
-  };
-}
-
 @Component({
   selector: 'app-customer-ledger',
   templateUrl: './customer-ledger.component.html',
   styleUrls: ['./customer-ledger.component.scss']
 })
 export class CustomerLedgerComponent implements OnInit {
-  title = 'Customer Ledger Report';
+  title = 'Customer Ledger';
   
-  // Data
+  ledgerData: CustomerLedgerEntry[] = [];
+  displayedColumns = ['date', 'type', 'refNo', 'customerName', 'paymentMode', 'debit', 'credit', 'balance'];
+  dataSource = new MatTableDataSource<CustomerLedgerEntry>();
+  isLoading = false;
+  
+  // Summary data
+  summary: CustomerLedgerSummary = {
+    TotalSales: 0,
+    TotalReceived: 0,
+    TotalOutstanding: 0,
+    TotalTransactions: 0,
+    DateRange: { From: 'All Time', To: 'All Time' }
+  };
+  
+  // Form for filtering
+  filterForm: FormGroup;
   customers: Customer[] = [];
   filteredCustomers: Customer[] = [];
-  ledgerData: LedgerData[] = [];
-  summary: LedgerSummary | null = null;
-  dataSource: MatTableDataSource<LedgerData>;
   
-  // UI State
-  isLoading = false;
-  hasError = false;
+  // Error handling
   errorMessage: string = '';
-  
-  // Form
-  filterForm: FormGroup;
-  
-  // Table
-  displayedColumns = ['Date', 'Type', 'RefNo', 'CustomerName', 'PaymentMode', 'Debit', 'Credit', 'Balance'];
+  hasError: boolean = false;
 
-  constructor(
-    private fb: FormBuilder,
-    private http: HttpClient,
-    private snackBar: MatSnackBar
-  ) {
-    this.dataSource = new MatTableDataSource<LedgerData>();
-    
-    // Set default date range (1st day of current month to today)
+  constructor(private http: HttpClient, private fb: FormBuilder, private router: Router) {
+    // Set default date range from 1st day of current month to today
     const today = new Date();
     const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
     
@@ -79,9 +78,9 @@ export class CustomerLedgerComponent implements OnInit {
     });
   }
 
-  ngOnInit(): void {
+  ngOnInit() {
     this.loadCustomers();
-    this.loadLedgerData();
+    this.onSearch();
   }
 
   loadCustomers(): void {
@@ -90,6 +89,7 @@ export class CustomerLedgerComponent implements OnInit {
         // Filter to show only customers (customers with customerType 'Customer')
         this.customers = customers.filter(customer => customer.customerType === 'Customer');
         this.filteredCustomers = this.customers;
+        console.log('Loaded customers:', this.customers);
       },
       error: (error) => {
         console.error('Error loading customers:', error);
@@ -108,45 +108,27 @@ export class CustomerLedgerComponent implements OnInit {
     const fromDate = this.filterForm.get('fromDate')?.value;
     const toDate = this.filterForm.get('toDate')?.value;
     
+    this.hasError = false;
+    this.errorMessage = '';
+    
     if (fromDate && toDate) {
       const from = new Date(fromDate);
       const to = new Date(toDate);
-      
       if (from > to) {
         this.hasError = true;
         this.errorMessage = 'From Date cannot be greater than To Date';
-        return;
       }
     }
-    
-    this.hasError = false;
-    this.errorMessage = '';
   }
 
   onSearch(): void {
     this.validateDates();
     if (!this.hasError) {
-      this.loadLedgerData();
+      this.loadCustomerLedger();
     }
   }
 
-  onReset(): void {
-    // Reset to default date range
-    const today = new Date();
-    const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-    
-    this.filterForm.patchValue({
-      fromDate: firstDayOfMonth.toISOString().split('T')[0],
-      toDate: today.toISOString().split('T')[0],
-      customerId: ''
-    });
-    
-    this.hasError = false;
-    this.errorMessage = '';
-    this.loadLedgerData();
-  }
-
-  loadLedgerData(): void {
+  loadCustomerLedger(): void {
     if (this.hasError) return;
     
     this.isLoading = true;
@@ -156,117 +138,152 @@ export class CustomerLedgerComponent implements OnInit {
     const toDate = this.filterForm.get('toDate')?.value;
     const customerId = this.filterForm.get('customerId')?.value;
     
-    // Handle timezone by creating date in local timezone and formatting as YYYY-MM-DD
     if (fromDate) {
+      // Handle timezone by creating date in local timezone and formatting as YYYY-MM-DD
       const date = new Date(fromDate);
       const year = date.getFullYear();
       const month = String(date.getMonth() + 1).padStart(2, '0');
       const day = String(date.getDate()).padStart(2, '0');
       const formattedFromDate = `${year}-${month}-${day}`;
       params.append('fromDate', formattedFromDate);
-      console.log('From Date:', fromDate, 'Formatted:', formattedFromDate);
+      console.log('Ledger From Date:', fromDate, 'Formatted:', formattedFromDate);
     }
     if (toDate) {
+      // Handle timezone by creating date in local timezone and formatting as YYYY-MM-DD
       const date = new Date(toDate);
       const year = date.getFullYear();
       const month = String(date.getMonth() + 1).padStart(2, '0');
       const day = String(date.getDate()).padStart(2, '0');
       const formattedToDate = `${year}-${month}-${day}`;
       params.append('toDate', formattedToDate);
-      console.log('To Date:', toDate, 'Formatted:', formattedToDate);
+      console.log('Ledger To Date:', toDate, 'Formatted:', formattedToDate);
     }
     if (customerId) params.append('customerId', customerId);
     
     const url = `${environment.apiUrl}/reports/customer-ledger?${params.toString()}`;
-    console.log('API URL:', url);
+    console.log('Customer Ledger API URL:', url);
     
     this.http.get<any>(url).subscribe({
       next: (response) => {
         console.log('API Response:', response);
+        console.log('Response data:', response.data);
+        console.log('Response summary:', response.summary);
         
-        // Map API response to frontend interface (handle lowercase property names)
-        this.ledgerData = (response.data || []).map((item: any) => ({
-          Date: item.date,
-          Type: item.type,
-          RefNo: item.refNo,
-          CustomerName: item.customerName,
-          PaymentMode: item.paymentMode,
-          Debit: item.debit,
-          Credit: item.credit,
-          Balance: item.balance
-        }));
+        // Handle different response structures
+        if (response.data && Array.isArray(response.data)) {
+          this.ledgerData = response.data;
+        } else if (Array.isArray(response)) {
+          this.ledgerData = response;
+        } else {
+          this.ledgerData = [];
+        }
         
-        // Map summary response
-        this.summary = response.summary ? {
-          TotalSales: response.summary.totalSales || response.summary.TotalSales,
-          TotalReceived: response.summary.totalReceived || response.summary.TotalReceived,
-          TotalOutstanding: response.summary.totalOutstanding || response.summary.TotalOutstanding,
-          TransactionCount: response.summary.transactionCount || response.summary.TransactionCount,
-          DateRange: response.summary.dateRange || response.summary.DateRange
-        } : null;
+        // Handle summary data
+        if (response.summary) {
+          // Map lowercase API response to capitalized interface
+          this.summary = {
+            TotalSales: response.summary.totalSales || 0,
+            TotalReceived: response.summary.totalReceived || 0,
+            TotalOutstanding: response.summary.totalOutstanding || 0,
+            TotalTransactions: response.summary.totalTransactions || 0,
+            DateRange: {
+              From: response.summary.dateRange?.from || 'All Time',
+              To: response.summary.dateRange?.to || 'All Time'
+            }
+          };
+        } else {
+          // Calculate summary from data if not provided
+          this.summary = {
+            TotalSales: this.ledgerData.reduce((sum, item) => sum + (item.debit || 0), 0),
+            TotalReceived: this.ledgerData.reduce((sum, item) => sum + (item.credit || 0), 0),
+            TotalOutstanding: this.ledgerData.reduce((sum, item) => sum + ((item.debit || 0) - (item.credit || 0)), 0),
+            TotalTransactions: this.ledgerData.length,
+            DateRange: { From: 'All Time', To: 'All Time' }
+          };
+        }
         
         this.dataSource.data = this.ledgerData;
-        console.log('Ledger Data:', this.ledgerData);
-        console.log('Summary:', this.summary);
+        console.log('Processed Ledger Data:', this.ledgerData);
+        console.log('Processed Summary:', this.summary);
         this.isLoading = false;
       },
-      error: (error) => {
-        console.error('Error loading ledger data:', error);
-        this.snackBar.open('Error loading ledger data. Please try again.', 'Close', {
-          duration: 3000
-        });
+      error: (error: any) => {
+        console.error('Error loading customer ledger:', error);
+        this.ledgerData = [];
+        this.dataSource.data = [];
+        this.summary = {
+          TotalSales: 0,
+          TotalReceived: 0,
+          TotalOutstanding: 0,
+          TotalTransactions: 0,
+          DateRange: { From: 'All Time', To: 'All Time' }
+        };
         this.isLoading = false;
       }
     });
   }
 
+  resetFilters(): void {
+    this.filterForm.reset();
+    this.hasError = false;
+    this.errorMessage = '';
+    this.filteredCustomers = this.customers;
+    const today = new Date();
+    const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+    this.filterForm.patchValue({
+      fromDate: firstDayOfMonth.toISOString().split('T')[0],
+      toDate: today.toISOString().split('T')[0],
+      customerId: ''
+    });
+    this.loadCustomerLedger();
+  }
+
   exportToExcel(): void {
-    if (!this.ledgerData || this.ledgerData.length === 0) {
-      this.snackBar.open('No data to export', 'Close', { duration: 3000 });
+    if (this.ledgerData.length === 0) {
+      alert('No data available to export');
       return;
     }
 
     // Create CSV content
-    const headers = ['Date', 'Type', 'Reference No', 'Customer Name', 'Payment Mode', 'Debit', 'Credit', 'Balance'];
-    const csvRows = [
+    const headers = ['Date', 'Type', 'Ref No', 'Customer Name', 'Payment Mode', 'Debit', 'Credit', 'Balance'];
+    const csvContent = [
       headers.join(','),
-      ...this.ledgerData.map(row => [
-        row.Date,
-        row.Type,
-        row.RefNo,
-        `"${row.CustomerName}"`,
-        row.PaymentMode,
-        row.Debit,
-        row.Credit,
-        row.Balance
+      ...this.ledgerData.map(item => [
+        `"${new Date(item.date).toLocaleDateString()}"`,
+        `"${item.type}"`,
+        `"${item.refNo}"`,
+        `"${item.customerName}"`,
+        `"${item.paymentMode}"`,
+        item.debit,
+        item.credit,
+        item.balance
       ].join(','))
-    ];
+    ].join('\n');
 
-    // Add summary at the end
-    if (this.summary) {
-      csvRows.push('\n\nSummary');
-      csvRows.push(`Total Sales,${this.summary.TotalSales}`);
-      csvRows.push(`Total Received,${this.summary.TotalReceived}`);
-      csvRows.push(`Total Outstanding,${this.summary.TotalOutstanding}`);
-      csvRows.push(`Transaction Count,${this.summary.TransactionCount}`);
-    }
-
-    const csvContent = csvRows.join('\n');
-
-    // Create and download file
-    const blob = new Blob([csvContent], { type: 'text/csv' });
-    const url = window.URL.createObjectURL(blob);
+    // Create blob and download
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
-    link.href = url;
-    link.download = `Customer_Ledger.csv`;
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', 'Customer_Ledger.csv');
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
     link.click();
-    window.URL.revokeObjectURL(url);
-
-    this.snackBar.open('Ledger exported successfully', 'Close', { duration: 3000 });
+    document.body.removeChild(link);
   }
 
-  backToReports(): void {
-    // Navigate back to reports page
-    window.history.back();
+  formatCurrency(amount: number): string {
+    return new Intl.NumberFormat('en-US', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    }).format(amount);
+  }
+
+  formatDate(date: string): string {
+    return new Date(date).toLocaleDateString();
+  }
+
+  goBackToReports(): void {
+    this.router.navigate(['/reports']);
   }
 }

@@ -7,11 +7,10 @@ import { SalesReportEnhancedComponent } from './sales-report/sales-report-enhanc
 import { PurchaseReportComponent } from './purchase-report/purchase-report.component';
 import { CustomerLedgerComponent } from './customer-ledger/customer-ledger.component';
 import { DayBookComponent } from './day-book/day-book.component';
+import { ItemWiseSalesComponent } from './item-wise-sales/item-wise-sales.component';
 import { TopCustomersComponent } from './top-customers/top-customers.component';
 import { PurchaseItemWiseComponent } from './purchase-item-wise/purchase-item-wise.component';
 import { SupplierLedgerComponent } from './supplier-ledger/supplier-ledger.component';
-import { ItemWiseSalesComponent } from './item-wise-sales/item-wise-sales.component';
-import { TopSuppliersComponent } from './top-suppliers/top-suppliers.component';
 
 const routes: Routes = [
   { path: '', component: DashboardComponent },
@@ -21,11 +20,10 @@ const routes: Routes = [
   { path: 'purchase', component: PurchaseReportComponent },
   { path: 'customer-ledger', component: CustomerLedgerComponent },
   { path: 'day-book', component: DayBookComponent },
+  { path: 'item-wise-sales', component: ItemWiseSalesComponent },
   { path: 'top-customers', component: TopCustomersComponent },
   { path: 'purchase-item-wise', component: PurchaseItemWiseComponent },
-  { path: 'supplier-ledger', component: SupplierLedgerComponent },
-  { path: 'item-wise-sales', component: ItemWiseSalesComponent },
-  { path: 'top-suppliers', component: TopSuppliersComponent }
+  { path: 'supplier-ledger', component: SupplierLedgerComponent }
 ];
 
 @NgModule({

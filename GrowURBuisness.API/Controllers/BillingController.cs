@@ -62,7 +62,7 @@ namespace GrowURBuisness.API.Controllers
                     InvoiceNumber = $"INV-{DateTime.Now:yyyyMMdd}-{new Random().Next(1000, 9999)}",
                     CustomerId = request.CustomerId,
                     PaymentType = request.PaymentType,
-                    Status = "Pending",
+                    Status = request.PaymentType == "Credit" ? "Pending" : "Paid",
                     InvoiceDate = DateTime.Now,
                     DueDate = DateTime.Now.AddDays(7),
                     CreatedDate = DateTime.Now,
@@ -226,6 +226,56 @@ namespace GrowURBuisness.API.Controllers
 
             return Ok(invoiceDetails);
         }
+
+        // PUT: api/billing/invoices/5
+        [HttpPut("invoices/{id}")]
+        public async Task<ActionResult<object>> UpdateInvoice(int id, [FromBody] UpdateInvoiceRequest request)
+        {
+            try
+            {
+                var invoice = await _context.Invoices
+                    .Include(i => i.Customer)
+                    .FirstOrDefaultAsync(i => i.Id == id);
+
+                if (invoice == null)
+                {
+                    return NotFound(new { success = false, message = "Invoice not found" });
+                }
+
+                // Update only allowed fields
+                if (!string.IsNullOrEmpty(request.PaymentType))
+                {
+                    invoice.PaymentType = request.PaymentType;
+                }
+
+                // Set status based on payment type
+                if (!string.IsNullOrEmpty(request.Status))
+                {
+                    invoice.Status = request.Status;
+                }
+                else if (!string.IsNullOrEmpty(request.PaymentType))
+                {
+                    invoice.Status = request.PaymentType == "Credit" ? "Pending" : "Paid";
+                }
+
+                invoice.LastModifiedDate = DateTime.Now;
+
+                await _context.SaveChangesAsync();
+
+                return Ok(new 
+                { 
+                    success = true, 
+                    message = "Invoice updated successfully",
+                    invoiceId = invoice.Id,
+                    paymentType = invoice.PaymentType,
+                    status = invoice.Status
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { success = false, message = $"Error updating invoice: {ex.Message}" });
+            }
+        }
     }
 
     // DTOs for API
@@ -234,6 +284,12 @@ namespace GrowURBuisness.API.Controllers
         public int CustomerId { get; set; }
         public string PaymentType { get; set; } = "Cash";
         public List<InvoiceItemRequest> Items { get; set; } = new();
+    }
+
+    public class UpdateInvoiceRequest
+    {
+        public string PaymentType { get; set; }
+        public string Status { get; set; }
     }
 
     public class InvoiceItemRequest

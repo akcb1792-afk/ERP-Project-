@@ -157,6 +157,11 @@
                   <mat-icon>receipt</mat-icon>
                   View Bill
                 </button>
+                <button mat-raised-button color="accent" (click)="editInvoice(invoice)" 
+                        *ngIf="invoice.paymentType === 'Credit'">
+                  <mat-icon>edit</mat-icon>
+                  Edit
+                </button>
               </td>
             </ng-container>
 

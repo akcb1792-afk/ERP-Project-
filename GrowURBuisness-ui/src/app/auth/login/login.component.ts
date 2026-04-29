@@ -40,6 +40,13 @@ export class LoginComponent implements OnInit {
       
       // For demo purposes, accept any valid email/password
       if (this.loginForm.value.email && this.loginForm.value.password) {
+        // Set authentication state in localStorage
+        localStorage.setItem('isLoggedIn', 'true');
+        localStorage.setItem('user', JSON.stringify({
+          email: this.loginForm.value.email,
+          name: 'Demo User'
+        }));
+        
         this.snackBar.open('Login successful!', 'Success', {
           duration: 2000,
           horizontalPosition: 'center',

@@ -1,37 +1,38 @@
 import { Component, OnInit } from '@angular/core';
-import { FormBuilder, FormGroup } from '@angular/forms';
+import { FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
-import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatTableDataSource } from '@angular/material/table';
+import { Router } from '@angular/router';
 import { environment } from '../../../environments/environment';
+
+export interface SupplierLedgerEntry {
+  date: string;
+  type: string;
+  refNo: string;
+  supplierName: string;
+  debit: number;
+  credit: number;
+  balance: number;
+}
+
+export interface SupplierLedgerSummary {
+  totalPurchases: number;
+  totalPaid: number;
+  totalOutstanding: number;
+  totalTransactions: number;
+  dateRange: {
+    from: string;
+    to: string;
+  };
+}
 
 export interface Supplier {
   id: number;
   name: string;
-  address: string;
   email: string;
   phone: string;
+  address: string;
   isActive: boolean;
-}
-
-export interface SupplierLedgerData {
-  Date: string;
-  Type: string;
-  RefNo: string;
-  SupplierName: string;
-  Debit: number;
-  Credit: number;
-  Balance: number;
-}
-
-export interface SupplierLedgerSummary {
-  TotalPurchases: number;
-  TotalOutstanding: number;
-  TransactionCount: number;
-  DateRange: {
-    From: string;
-    To: string;
-  };
 }
 
 @Component({
@@ -40,54 +41,54 @@ export interface SupplierLedgerSummary {
   styleUrls: ['./supplier-ledger.component.scss']
 })
 export class SupplierLedgerComponent implements OnInit {
-  title = 'Supplier Ledger Report';
+  title = 'Supplier Ledger';
   
-  // Data
+  ledgerData: SupplierLedgerEntry[] = [];
+  displayedColumns = ['date', 'type', 'refNo', 'supplierName', 'debit', 'credit', 'balance'];
+  dataSource = new MatTableDataSource<SupplierLedgerEntry>();
+  isLoading = false;
+  
+  // Summary data
+  summary: SupplierLedgerSummary = {
+    totalPurchases: 0,
+    totalPaid: 0,
+    totalOutstanding: 0,
+    totalTransactions: 0,
+    dateRange: { from: 'All Time', to: 'All Time' }
+  };
+  
+  // Form for filtering
+  filterForm: FormGroup;
   suppliers: Supplier[] = [];
   filteredSuppliers: Supplier[] = [];
-  supplierLedgerData: SupplierLedgerData[] = [];
-  summary: SupplierLedgerSummary | null = null;
-  dataSource: MatTableDataSource<SupplierLedgerData>;
   
-  // UI State
-  isLoading = false;
-  hasError = false;
+  // Error handling
   errorMessage: string = '';
-  
-  // Form
-  filterForm: FormGroup;
-  
-  // Table
-  displayedColumns = ['Date', 'Type', 'RefNo', 'SupplierName', 'Debit', 'Credit', 'Balance'];
+  hasError: boolean = false;
 
-  constructor(
-    private fb: FormBuilder,
-    private http: HttpClient,
-    private snackBar: MatSnackBar
-  ) {
-    this.dataSource = new MatTableDataSource<SupplierLedgerData>();
-    
-    // Set default date range (current month)
+  constructor(private http: HttpClient, private fb: FormBuilder, private router: Router) {
+    // Set default date range from 1st day of current month to today
     const today = new Date();
     const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
     
     this.filterForm = this.fb.group({
       fromDate: [firstDayOfMonth.toISOString().split('T')[0]],
       toDate: [today.toISOString().split('T')[0]],
-      vendorId: ['']
+      supplierId: ['']
     });
   }
 
-  ngOnInit(): void {
+  ngOnInit() {
     this.loadSuppliers();
-    this.loadSupplierLedgerData();
+    this.loadSupplierLedger();
   }
 
   loadSuppliers(): void {
-    this.http.get<Supplier[]>(`${environment.apiUrl}/billing/vendors`).subscribe({
+    this.http.get<Supplier[]>(`${environment.apiUrl}/Customer/type/Vendor`).subscribe({
       next: (suppliers) => {
         this.suppliers = suppliers.filter(supplier => supplier.isActive);
         this.filteredSuppliers = this.suppliers;
+        console.log('Loaded suppliers:', this.suppliers);
       },
       error: (error) => {
         console.error('Error loading suppliers:', error);
@@ -106,45 +107,27 @@ export class SupplierLedgerComponent implements OnInit {
     const fromDate = this.filterForm.get('fromDate')?.value;
     const toDate = this.filterForm.get('toDate')?.value;
     
+    this.hasError = false;
+    this.errorMessage = '';
+    
     if (fromDate && toDate) {
       const from = new Date(fromDate);
       const to = new Date(toDate);
-      
       if (from > to) {
         this.hasError = true;
         this.errorMessage = 'From Date cannot be greater than To Date';
-        return;
       }
     }
-    
-    this.hasError = false;
-    this.errorMessage = '';
   }
 
   onSearch(): void {
     this.validateDates();
     if (!this.hasError) {
-      this.loadSupplierLedgerData();
+      this.loadSupplierLedger();
     }
   }
 
-  onReset(): void {
-    // Reset to default date range
-    const today = new Date();
-    const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-    
-    this.filterForm.patchValue({
-      fromDate: firstDayOfMonth.toISOString().split('T')[0],
-      toDate: today.toISOString().split('T')[0],
-      vendorId: ''
-    });
-    
-    this.hasError = false;
-    this.errorMessage = '';
-    this.loadSupplierLedgerData();
-  }
-
-  loadSupplierLedgerData(): void {
+  loadSupplierLedger(): void {
     if (this.hasError) return;
     
     this.isLoading = true;
@@ -152,115 +135,153 @@ export class SupplierLedgerComponent implements OnInit {
     const params = new URLSearchParams();
     const fromDate = this.filterForm.get('fromDate')?.value;
     const toDate = this.filterForm.get('toDate')?.value;
-    const vendorId = this.filterForm.get('vendorId')?.value;
+    const supplierId = this.filterForm.get('supplierId')?.value;
     
-    // Handle timezone by creating date in local timezone and formatting as YYYY-MM-DD
     if (fromDate) {
+      // Handle timezone by creating date in local timezone and formatting as YYYY-MM-DD
       const date = new Date(fromDate);
       const year = date.getFullYear();
       const month = String(date.getMonth() + 1).padStart(2, '0');
       const day = String(date.getDate()).padStart(2, '0');
       const formattedFromDate = `${year}-${month}-${day}`;
       params.append('fromDate', formattedFromDate);
-      console.log('From Date:', fromDate, 'Formatted:', formattedFromDate);
+      console.log('Supplier Ledger From Date:', fromDate, 'Formatted:', formattedFromDate);
     }
     if (toDate) {
+      // Handle timezone by creating date in local timezone and formatting as YYYY-MM-DD
       const date = new Date(toDate);
       const year = date.getFullYear();
       const month = String(date.getMonth() + 1).padStart(2, '0');
       const day = String(date.getDate()).padStart(2, '0');
       const formattedToDate = `${year}-${month}-${day}`;
       params.append('toDate', formattedToDate);
-      console.log('To Date:', toDate, 'Formatted:', formattedToDate);
+      console.log('Supplier Ledger To Date:', toDate, 'Formatted:', formattedToDate);
     }
-    if (vendorId) params.append('vendorId', vendorId);
+    if (supplierId) params.append('supplierId', supplierId);
     
     const url = `${environment.apiUrl}/reports/supplier-ledger?${params.toString()}`;
-    console.log('API URL:', url);
+    console.log('Supplier Ledger API URL:', url);
     
     this.http.get<any>(url).subscribe({
       next: (response) => {
         console.log('API Response:', response);
+        console.log('Response data:', response.data);
+        console.log('Response summary:', response.summary);
         
-        // Map API response to frontend interface (handle lowercase property names)
-        this.supplierLedgerData = (response.data || []).map((item: any) => ({
-          Date: item.date ? item.date.split('T')[0] : item.date,
-          Type: item.type,
-          RefNo: item.refNo,
-          SupplierName: item.supplierName,
-          Debit: item.debit,
-          Credit: item.credit,
-          Balance: item.balance
-        }));
+        // Handle different response structures
+        if (response.data && Array.isArray(response.data)) {
+          this.ledgerData = response.data;
+        } else if (Array.isArray(response)) {
+          this.ledgerData = response;
+        } else {
+          this.ledgerData = [];
+        }
         
-        // Map summary response
-        this.summary = response.summary ? {
-          TotalPurchases: response.summary.totalPurchases || response.summary.TotalPurchases,
-          TotalOutstanding: response.summary.totalOutstanding || response.summary.TotalOutstanding,
-          TransactionCount: response.summary.transactionCount || response.summary.TransactionCount,
-          DateRange: response.summary.dateRange || response.summary.DateRange
-        } : null;
+        // Handle summary data
+        if (response.summary) {
+          // Map lowercase API response to capitalized interface
+          this.summary = {
+            totalPurchases: response.summary.totalPurchases || 0,
+            totalPaid: response.summary.totalPaid || 0,
+            totalOutstanding: response.summary.totalOutstanding || 0,
+            totalTransactions: response.summary.totalTransactions || 0,
+            dateRange: {
+              from: response.summary.dateRange?.from || 'All Time',
+              to: response.summary.dateRange?.to || 'All Time'
+            }
+          };
+        } else {
+          // Calculate summary from data if not provided
+          this.summary = {
+            totalPurchases: this.ledgerData.reduce((sum, item) => sum + (item.credit || 0), 0),
+            totalPaid: this.ledgerData.reduce((sum, item) => sum + (item.debit || 0), 0),
+            totalOutstanding: this.ledgerData.reduce((sum, item) => sum + ((item.credit || 0) - (item.debit || 0)), 0),
+            totalTransactions: this.ledgerData.length,
+            dateRange: { from: 'All Time', to: 'All Time' }
+          };
+        }
         
-        this.dataSource.data = this.supplierLedgerData;
-        console.log('Supplier Ledger Data:', this.supplierLedgerData);
-        console.log('Summary:', this.summary);
+        this.dataSource.data = this.ledgerData;
+        console.log('Processed Supplier Ledger Data:', this.ledgerData);
+        console.log('Processed Summary:', this.summary);
         this.isLoading = false;
       },
-      error: (error) => {
-        console.error('Error loading supplier ledger data:', error);
-        this.snackBar.open('Error loading supplier ledger data. Please try again.', 'Close', {
-          duration: 3000
-        });
+      error: (error: any) => {
+        console.error('Error loading supplier ledger:', error);
+        this.ledgerData = [];
+        this.dataSource.data = [];
+        this.summary = {
+          totalPurchases: 0,
+          totalPaid: 0,
+          totalOutstanding: 0,
+          totalTransactions: 0,
+          dateRange: { from: 'All Time', to: 'All Time' }
+        };
         this.isLoading = false;
       }
     });
   }
 
+  resetFilters(): void {
+    this.filterForm.reset();
+    this.hasError = false;
+    this.errorMessage = '';
+    this.filteredSuppliers = this.suppliers;
+    const today = new Date();
+    const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+    this.filterForm.patchValue({
+      fromDate: firstDayOfMonth.toISOString().split('T')[0],
+      toDate: today.toISOString().split('T')[0],
+      supplierId: ''
+    });
+    this.loadSupplierLedger();
+  }
+
   exportToExcel(): void {
-    if (!this.supplierLedgerData || this.supplierLedgerData.length === 0) {
-      this.snackBar.open('No data to export', 'Close', { duration: 3000 });
+    if (this.ledgerData.length === 0) {
+      alert('No data available to export');
       return;
     }
 
     // Create CSV content
-    const headers = ['Date', 'Type', 'Reference No', 'Supplier Name', 'Debit', 'Credit', 'Balance'];
-    const csvRows = [
+    const headers = ['Date', 'Type', 'Ref No', 'Supplier Name', 'Debit', 'Credit', 'Balance'];
+    const csvContent = [
       headers.join(','),
-      ...this.supplierLedgerData.map(row => [
-        row.Date,
-        row.Type,
-        row.RefNo,
-        `"${row.SupplierName}"`,
-        row.Debit,
-        row.Credit,
-        row.Balance
+      ...this.ledgerData.map(item => [
+        `"${new Date(item.date).toLocaleDateString()}"`,
+        `"${item.type}"`,
+        `"${item.refNo}"`,
+        `"${item.supplierName}"`,
+        item.debit,
+        item.credit,
+        item.balance
       ].join(','))
-    ];
+    ].join('\n');
 
-    // Add summary at the end
-    if (this.summary) {
-      csvRows.push('\n\nSummary');
-      csvRows.push(`Total Purchases,${this.summary.TotalPurchases}`);
-      csvRows.push(`Total Outstanding,${this.summary.TotalOutstanding}`);
-      csvRows.push(`Transaction Count,${this.summary.TransactionCount}`);
-    }
-
-    const csvContent = csvRows.join('\n');
-
-    // Create and download file
-    const blob = new Blob([csvContent], { type: 'text/csv' });
-    const url = window.URL.createObjectURL(blob);
+    // Create blob and download
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
-    link.href = url;
-    link.download = `Supplier_Ledger.csv`;
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', 'Supplier_Ledger.csv');
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
     link.click();
-    window.URL.revokeObjectURL(url);
-
-    this.snackBar.open('Supplier Ledger exported successfully', 'Close', { duration: 3000 });
+    document.body.removeChild(link);
   }
 
-  backToReports(): void {
-    // Navigate back to reports page
-    window.history.back();
+  formatCurrency(amount: number): string {
+    return new Intl.NumberFormat('en-US', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    }).format(amount);
+  }
+
+  formatDate(date: string): string {
+    return new Date(date).toLocaleDateString();
+  }
+
+  goBackToReports(): void {
+    this.router.navigate(['/reports']);
   }
 }

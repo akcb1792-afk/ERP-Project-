@@ -63,10 +63,10 @@ GO
 
 -- Insert Sample Invoices
 INSERT INTO Invoices (InvoiceNumber, CustomerId, TotalAmount, DiscountAmount, TaxAmount, FinalAmount, PaymentType, Status, InvoiceDate, DueDate) VALUES
-('INV-2024-001', 1, 175.00, 5.00, 8.75, 178.75, 'Cash', 'Paid', GETDATE(), DATEADD(DAY, 7, GETDATE())),
+('INV-2024-001', 1, 175.00, 5.00, 8.75, 178.75, 'Cash', 'Pending', GETDATE(), DATEADD(DAY, 7, GETDATE())),
 ('INV-2024-002', 2, 299.99, 10.00, 14.50, 304.49, 'Card', 'Pending', GETDATE(), DATEADD(DAY, 7, GETDATE())),
-('INV-2024-003', 3, 450.50, 15.00, 21.75, 457.25, 'Cash', 'Paid', GETDATE(), DATEADD(DAY, 7, GETDATE())),
-('INV-2024-004', 4, 125.00, 0.00, 6.25, 131.25, 'Card', 'Paid', GETDATE(), DATEADD(DAY, 7, GETDATE())),
+('INV-2024-003', 3, 450.50, 15.00, 21.75, 457.25, 'Cash', 'Pending', GETDATE(), DATEADD(DAY, 7, GETDATE())),
+('INV-2024-004', 4, 125.00, 0.00, 6.25, 131.25, 'Card', 'Pending', GETDATE(), DATEADD(DAY, 7, GETDATE())),
 ('INV-2024-005', 5, 675.25, 25.00, 32.51, 682.76, 'Cash', 'Pending', GETDATE(), DATEADD(DAY, 7, GETDATE()));
 GO
 

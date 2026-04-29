@@ -1,12 +1,13 @@
-<div class="container">
-  <div class="header-section">
-    <h2>Customer Ledger Report</h2>
+<div class="customer-ledger-container">
+  <!-- Header -->
+  <div class="page-header">
+    <h1 class="page-title">{{ title }}</h1>
     <div class="header-buttons">
-      <button mat-raised-button color="accent" (click)="backToReports()" class="back-btn">
+      <button mat-raised-button color="accent" (click)="goBackToReports()" class="back-btn">
         <mat-icon>arrow_back</mat-icon>
         Back to Reports
       </button>
-      <button mat-raised-button color="primary" (click)="exportToExcel()" class="export-btn">
+      <button mat-raised-button color="primary" (click)="exportToExcel()" class="export-btn" [disabled]="ledgerData.length === 0">
         <mat-icon>file_download</mat-icon>
         Export to Excel
       </button>
@@ -19,25 +20,22 @@
       <mat-card-title>Filters</mat-card-title>
     </mat-card-header>
     <mat-card-content>
-      <form [formGroup]="filterForm" class="filter-form">
-        <div class="filter-row">
-          <!-- From Date -->
+      <form [formGroup]="filterForm" class="filters-form">
+        <div class="filters-row">
           <mat-form-field appearance="outline" class="filter-field">
             <mat-label>From Date</mat-label>
-            <input matInput [matDatepicker]="fromPicker" formControlName="fromDate">
-            <mat-datepicker-toggle matSuffix [for]="fromPicker"></mat-datepicker-toggle>
-            <mat-datepicker #fromPicker></mat-datepicker>
+            <input matInput [matDatepicker]="fromDatePicker" formControlName="fromDate">
+            <mat-datepicker-toggle matSuffix [for]="fromDatePicker"></mat-datepicker-toggle>
+            <mat-datepicker #fromDatePicker></mat-datepicker>
           </mat-form-field>
 
-          <!-- To Date -->
           <mat-form-field appearance="outline" class="filter-field">
             <mat-label>To Date</mat-label>
-            <input matInput [matDatepicker]="toPicker" formControlName="toDate">
-            <mat-datepicker-toggle matSuffix [for]="toPicker"></mat-datepicker-toggle>
-            <mat-datepicker #toPicker></mat-datepicker>
+            <input matInput [matDatepicker]="toDatePicker" formControlName="toDate">
+            <mat-datepicker-toggle matSuffix [for]="toDatePicker"></mat-datepicker-toggle>
+            <mat-datepicker #toDatePicker></mat-datepicker>
           </mat-form-field>
 
-          <!-- Customer -->
           <mat-form-field appearance="outline" class="filter-field customer-field">
             <mat-label>Customer</mat-label>
             <mat-select formControlName="customerId">
@@ -46,33 +44,65 @@
                 {{ customer.name }}
               </mat-option>
             </mat-select>
-            <input matInput 
-                   placeholder="Search customers..." 
-                   (input)="onCustomerSearch($event)"
-                   class="customer-search">
           </mat-form-field>
+        </div>
 
-          <!-- Search Actions -->
-          <div class="filter-actions">
-            <button mat-raised-button color="primary" (click)="onSearch()" class="search-btn">
-              <mat-icon>search</mat-icon>
-              Search
-            </button>
-            <button mat-stroked-button color="accent" (click)="onReset()" class="reset-btn">
-              <mat-icon>refresh</mat-icon>
-              Reset
-            </button>
-          </div>
+        <div class="filter-actions" *ngIf="hasError">
+          <mat-error class="error-message">{{ errorMessage }}</mat-error>
+        </div>
+
+        <div class="filter-actions">
+          <button mat-raised-button color="primary" (click)="onSearch()" [disabled]="hasError">
+            <mat-icon>search</mat-icon>
+            Search
+          </button>
+          <button mat-stroked-button (click)="resetFilters()">
+            <mat-icon>refresh</mat-icon>
+            Reset
+          </button>
         </div>
       </form>
-
-      <!-- Error Message -->
-      <div class="error-message" *ngIf="hasError">
-        <mat-icon>warning</mat-icon>
-        {{ errorMessage }}
-      </div>
     </mat-card-content>
   </mat-card>
+
+  <!-- Summary Cards -->
+  <div class="summary-cards" *ngIf="!isLoading && ledgerData.length > 0">
+    <mat-card class="summary-card">
+      <mat-card-content>
+        <div class="summary-content">
+          <div class="summary-label">Total Sales</div>
+          <div class="summary-value sales">{{ formatCurrency(summary.TotalSales) }}</div>
+        </div>
+      </mat-card-content>
+    </mat-card>
+
+    <mat-card class="summary-card">
+      <mat-card-content>
+        <div class="summary-content">
+          <div class="summary-label">Total Received</div>
+          <div class="summary-value received">{{ formatCurrency(summary.TotalReceived) }}</div>
+        </div>
+      </mat-card-content>
+    </mat-card>
+
+    <mat-card class="summary-card">
+      <mat-card-content>
+        <div class="summary-content">
+          <div class="summary-label">Total Outstanding</div>
+          <div class="summary-value outstanding">{{ formatCurrency(summary.TotalOutstanding) }}</div>
+        </div>
+      </mat-card-content>
+    </mat-card>
+
+    <mat-card class="summary-card">
+      <mat-card-content>
+        <div class="summary-content">
+          <div class="summary-label">Total Transactions</div>
+          <div class="summary-value transactions">{{ summary.TotalTransactions }}</div>
+        </div>
+      </mat-card-content>
+    </mat-card>
+  </div>
 
   <!-- Loading State -->
   <div class="loading-container" *ngIf="isLoading">
@@ -80,149 +110,85 @@
     <p>Loading customer ledger data...</p>
   </div>
 
-  <!-- Summary Cards -->
-  <div class="summary-grid" *ngIf="!isLoading && summary">
-    <mat-card class="summary-card">
-      <mat-card-header>
-        <mat-card-title>
-          <mat-icon>shopping_cart</mat-icon>
-          Total Sales
-        </mat-card-title>
-      </mat-card-header>
-      <mat-card-content>
-        <div class="summary-value">{{ summary.TotalSales | number:'1.2-2' }}</div>
-        <div class="summary-label">Total Sales Amount</div>
-      </mat-card-content>
-    </mat-card>
-
-    <mat-card class="summary-card">
-      <mat-card-header>
-        <mat-card-title>
-          <mat-icon>payments</mat-icon>
-          Total Received
-        </mat-card-title>
-      </mat-card-header>
-      <mat-card-content>
-        <div class="summary-value">{{ summary.TotalReceived | number:'1.2-2' }}</div>
-        <div class="summary-label">Cash & UPI Received</div>
-      </mat-card-content>
-    </mat-card>
-
-    <mat-card class="summary-card">
-      <mat-card-header>
-        <mat-card-title>
-          <mat-icon>pending_actions</mat-icon>
-          Total Outstanding
-        </mat-card-title>
-      </mat-card-header>
-      <mat-card-content>
-        <div class="summary-value">{{ summary.TotalOutstanding | number:'1.2-2' }}</div>
-        <div class="summary-label">Credit Outstanding</div>
-      </mat-card-content>
-    </mat-card>
-
-    </div>
-
-  <!-- Date Range Info -->
-  <div class="date-range-info" *ngIf="!isLoading && summary && summary.DateRange">
-    <strong>Date Range:</strong> {{ summary.DateRange.From }} to {{ summary.DateRange.To }}
+  <!-- No Data State -->
+  <div class="no-data-container" *ngIf="!isLoading && ledgerData.length === 0">
+    <mat-icon class="no-data-icon">receipt_long</mat-icon>
+    <h3>No Data Found</h3>
+    <p>No ledger transactions found for the selected criteria.</p>
   </div>
 
-  <!-- Ledger Table -->
-  <div class="table-container" *ngIf="!isLoading">
+  <!-- Data Table -->
+  <div class="table-container" *ngIf="!isLoading && ledgerData.length > 0">
     <mat-card class="table-card">
-      <mat-card-header>
-        <mat-card-title>Customer Ledger</mat-card-title>
-        <mat-card-subtitle>{{ ledgerData.length }} transactions found</mat-card-subtitle>
-      </mat-card-header>
       <mat-card-content>
-        <div class="table-wrapper">
-          <table mat-table [dataSource]="dataSource" class="ledger-table">
-            <!-- Date Column -->
-            <ng-container matColumnDef="Date">
-              <th mat-header-cell *matHeaderCellDef>Date</th>
-              <td mat-cell *matCellDef="let row">
-                {{ row.Date | date:'mediumDate' }}
-              </td>
-            </ng-container>
+        <table mat-table [dataSource]="dataSource" class="ledger-table">
+          <!-- Date Column -->
+          <ng-container matColumnDef="date">
+            <th mat-header-cell *matHeaderCellDef>Date</th>
+            <td mat-cell *matCellDef="let element">{{ formatDate(element.date) }}</td>
+          </ng-container>
 
-            <!-- Type Column -->
-            <ng-container matColumnDef="Type">
-              <th mat-header-cell *matHeaderCellDef>Type</th>
-              <td mat-cell *matCellDef="let row">
-                <span class="transaction-type">{{ row.Type }}</span>
-              </td>
-            </ng-container>
+          <!-- Type Column -->
+          <ng-container matColumnDef="type">
+            <th mat-header-cell *matHeaderCellDef>Type</th>
+            <td mat-cell *matCellDef="let element">
+              <span class="type-badge sale">{{ element.type }}</span>
+            </td>
+          </ng-container>
 
-            <!-- Ref No Column -->
-            <ng-container matColumnDef="RefNo">
-              <th mat-header-cell *matHeaderCellDef>Ref No</th>
-              <td mat-cell *matCellDef="let row">
-                <span class="ref-no">{{ row.RefNo }}</span>
-              </td>
-            </ng-container>
+          <!-- Ref No Column -->
+          <ng-container matColumnDef="refNo">
+            <th mat-header-cell *matHeaderCellDef>Ref No</th>
+            <td mat-cell *matCellDef="let element">{{ element.refNo }}</td>
+          </ng-container>
 
-            <!-- Payment Mode Column -->
-            <ng-container matColumnDef="PaymentMode">
-              <th mat-header-cell *matHeaderCellDef>Payment Mode</th>
-              <td mat-cell *matCellDef="let row">
-                <span class="payment-mode">{{ row.PaymentMode }}</span>
-              </td>
-            </ng-container>
+          <!-- Customer Name Column -->
+          <ng-container matColumnDef="customerName">
+            <th mat-header-cell *matHeaderCellDef>Customer Name</th>
+            <td mat-cell *matCellDef="let element">{{ element.customerName }}</td>
+          </ng-container>
 
-            <!-- Customer Name Column -->
-            <ng-container matColumnDef="CustomerName">
-              <th mat-header-cell *matHeaderCellDef>Customer</th>
-              <td mat-cell *matCellDef="let row">
-                <span class="customer-name">{{ row.CustomerName }}</span>
-              </td>
-            </ng-container>
+          <!-- Payment Mode Column -->
+          <ng-container matColumnDef="paymentMode">
+            <th mat-header-cell *matHeaderCellDef>Payment Mode</th>
+            <td mat-cell *matCellDef="let element">
+              <span class="payment-mode-badge" [ngClass]="{
+                'cash': element.paymentMode === 'CASH',
+                'upi': element.paymentMode === 'UPI',
+                'credit': element.paymentMode === 'CREDIT'
+              }">
+                {{ element.paymentMode }}
+              </span>
+            </td>
+          </ng-container>
 
-            <!-- Debit Column -->
-            <ng-container matColumnDef="Debit">
-              <th mat-header-cell *matHeaderCellDef class="text-right">Debit</th>
-              <td mat-cell *matCellDef="let row" class="text-right">
-                <span class="debit-amount" *ngIf="row.Debit > 0">
-                  {{ row.Debit | number:'1.2-2' }}
-                </span>
-              </td>
-            </ng-container>
+          <!-- Debit Column -->
+          <ng-container matColumnDef="debit">
+            <th mat-header-cell *matHeaderCellDef class="numeric-column">Debit</th>
+            <td mat-cell *matCellDef="let element" class="numeric-column debit-column">
+              {{ formatCurrency(element.debit) }}
+            </td>
+          </ng-container>
 
-            <!-- Credit Column -->
-            <ng-container matColumnDef="Credit">
-              <th mat-header-cell *matHeaderCellDef class="text-right">Credit</th>
-              <td mat-cell *matCellDef="let row" class="text-right">
-                <span class="credit-amount" *ngIf="row.Credit > 0">
-                  {{ row.Credit | number:'1.2-2' }}
-                </span>
-              </td>
-            </ng-container>
+          <!-- Credit Column -->
+          <ng-container matColumnDef="credit">
+            <th mat-header-cell *matHeaderCellDef class="numeric-column">Credit</th>
+            <td mat-cell *matCellDef="let element" class="numeric-column credit-column">
+              {{ formatCurrency(element.credit) }}
+            </td>
+          </ng-container>
 
-            <!-- Balance Column -->
-            <ng-container matColumnDef="Balance">
-              <th mat-header-cell *matHeaderCellDef class="text-right">Balance</th>
-              <td mat-cell *matCellDef="let row" class="text-right">
-                <span class="balance-amount" [ngClass]="{
-                  'positive': row.Balance > 0,
-                  'zero': row.Balance === 0,
-                  'negative': row.Balance < 0
-                }">
-                  {{ row.Balance | number:'1.2-2' }}
-                </span>
-              </td>
-            </ng-container>
+          <!-- Balance Column -->
+          <ng-container matColumnDef="balance">
+            <th mat-header-cell *matHeaderCellDef class="numeric-column">Balance</th>
+            <td mat-cell *matCellDef="let element" class="numeric-column balance-column">
+              <strong>{{ formatCurrency(element.balance) }}</strong>
+            </td>
+          </ng-container>
 
-            <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
-            <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
-          </table>
-        </div>
-
-        <!-- No Data Message -->
-        <div class="no-data" *ngIf="!isLoading && ledgerData.length === 0">
-          <mat-icon>receipt_long</mat-icon>
-          <h3>No Credit Transactions Found</h3>
-          <p>No credit transactions found for the selected criteria.</p>
-        </div>
+          <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+          <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+        </table>
       </mat-card-content>
     </mat-card>
   </div>

@@ -4,6 +4,13 @@ import { Observable, forkJoin } from 'rxjs';
 import { environment } from '../../environments/environment';
 
 export interface DashboardStats {
+  todaysSell: number;
+  todaysPurchase: number;
+  todaysSellOrder: number;
+  todaysPurchaseOrder: number;
+  lowStockItems: number;
+  thisMonthTotalSell: number;
+  thisMonthTotalPurchase: number;
   totalOrders: number;
   totalQuantitySold: number;
   totalPurchase: number;
@@ -18,7 +25,6 @@ export interface DashboardStats {
   totalSalesValue: number;
   totalPurchaseValue: number;
   profit: number;
-  lowStockItems: number;
   pendingInvoices: number;
   purchaseOrders?: number;
   salesOrders?: number;
@@ -77,20 +83,38 @@ export class DashboardService {
     return this.http.get<LowStockItem[]>(`${this.apiUrl}/dashboard/low-stock`);
   }
 
+  // Get latest sales orders from API
+  getLatestSalesOrders(): Observable<any[]> {
+    return this.http.get<any[]>(`${this.apiUrl}/dashboard/latest-sales-orders`);
+  }
+
+  // Get latest purchase orders from API
+  getLatestPurchaseOrders(): Observable<any[]> {
+    return this.http.get<any[]>(`${this.apiUrl}/dashboard/latest-purchase-orders`);
+  }
+
+  // Get top lowest stock items from API
+  getTopLowestStock(): Observable<any[]> {
+    return this.http.get<any[]>(`${this.apiUrl}/dashboard/top-lowest-stock`);
+  }
+
   // Get complete dashboard data
   getDashboardData(): Observable<any> {
     return forkJoin({
       stats: this.getDashboardStats(),
       recentInvoices: this.getRecentInvoices(),
       recentOrders: this.getRecentOrders(),
-      lowStockItems: this.getLowStockItems()
+      lowStockItems: this.getLowStockItems(),
+      latestSalesOrders: this.getLatestSalesOrders(),
+      latestPurchaseOrders: this.getLatestPurchaseOrders(),
+      topLowestStock: this.getTopLowestStock()
     });
   }
 
   async getDashboardStatsData(): Promise<DashboardStats> {
     const stats = await this.getDashboardStats().toPromise();
-    const orders = await this.http.get<any[]>(`${this.apiUrl}/purchase-orders`).toPromise();
-    const invoices = await this.http.get<any[]>(`${this.apiUrl}/sales-orders`).toPromise();
+    const orders = await this.http.get<any[]>(`${this.apiUrl}/purchase`).toPromise();
+    const invoices = await this.http.get<any[]>(`${this.apiUrl}/billing/invoices`).toPromise();
 
     const statsData = stats || {
       totalOrders: 0,
@@ -112,6 +136,13 @@ export class DashboardService {
     };
 
     return {
+      todaysSell: statsData.todaysTotal || 0,
+      todaysPurchase: statsData.totalPurchase || 0,
+      todaysSellOrder: invoices?.length || 0,
+      todaysPurchaseOrder: orders?.length || 0,
+      lowStockItems: statsData.lowStockItems || 0,
+      thisMonthTotalSell: statsData.totalRevenue || 0,
+      thisMonthTotalPurchase: statsData.totalPurchaseValue || 0,
       totalOrders: statsData.totalOrders || 0,
       totalQuantitySold: statsData.totalQuantitySold || 0,
       totalPurchase: statsData.totalPurchase || 0,
@@ -126,7 +157,6 @@ export class DashboardService {
       totalSalesValue: statsData.totalSalesValue || 0,
       totalPurchaseValue: statsData.totalPurchaseValue || 0,
       profit: statsData.profit || 0,
-      lowStockItems: statsData.lowStockItems || 0,
       pendingInvoices: statsData.pendingInvoices || 0,
       purchaseOrders: orders?.length || 0,
       salesOrders: invoices?.length || 0
@@ -134,11 +164,11 @@ export class DashboardService {
   }
 
   getPurchaseOrders(): Observable<any[]> {
-    return this.http.get<any[]>(`${this.apiUrl}/purchase-orders`);
+    return this.http.get<any[]>(`${this.apiUrl}/purchase`);
   }
 
   getSalesOrders(): Observable<any[]> {
-    return this.http.get<any[]>(`${this.apiUrl}/sales-orders`);
+    return this.http.get<any[]>(`${this.apiUrl}/billing/invoices`);
   }
 
   // Dashboard Summary API

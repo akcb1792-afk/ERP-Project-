@@ -1,12 +1,13 @@
-<div class="container">
-  <div class="header-section">
-    <h2>Purchase Item-wise Report</h2>
+<div class="purchase-item-wise-container">
+  <!-- Header -->
+  <div class="page-header">
+    <h1 class="page-title">{{ title }}</h1>
     <div class="header-buttons">
-      <button mat-raised-button color="accent" (click)="backToReports()" class="back-btn">
+      <button mat-raised-button color="accent" (click)="goBackToReports()" class="back-btn">
         <mat-icon>arrow_back</mat-icon>
         Back to Reports
       </button>
-      <button mat-raised-button color="primary" (click)="exportToExcel()" class="export-btn">
+      <button mat-raised-button color="primary" (click)="exportToExcel()" class="export-btn" [disabled]="purchaseItemData.length === 0">
         <mat-icon>file_download</mat-icon>
         Export to Excel
       </button>
@@ -19,25 +20,22 @@
       <mat-card-title>Filters</mat-card-title>
     </mat-card-header>
     <mat-card-content>
-      <form [formGroup]="filterForm" class="filter-form">
-        <div class="filter-row">
-          <!-- From Date -->
+      <form [formGroup]="filterForm" class="filters-form">
+        <div class="filters-row">
           <mat-form-field appearance="outline" class="filter-field">
             <mat-label>From Date</mat-label>
-            <input matInput [matDatepicker]="fromPicker" formControlName="fromDate">
-            <mat-datepicker-toggle matSuffix [for]="fromPicker"></mat-datepicker-toggle>
-            <mat-datepicker #fromPicker></mat-datepicker>
+            <input matInput [matDatepicker]="fromDatePicker" formControlName="fromDate">
+            <mat-datepicker-toggle matSuffix [for]="fromDatePicker"></mat-datepicker-toggle>
+            <mat-datepicker #fromDatePicker></mat-datepicker>
           </mat-form-field>
 
-          <!-- To Date -->
           <mat-form-field appearance="outline" class="filter-field">
             <mat-label>To Date</mat-label>
-            <input matInput [matDatepicker]="toPicker" formControlName="toDate">
-            <mat-datepicker-toggle matSuffix [for]="toPicker"></mat-datepicker-toggle>
-            <mat-datepicker #toPicker></mat-datepicker>
+            <input matInput [matDatepicker]="toDatePicker" formControlName="toDate">
+            <mat-datepicker-toggle matSuffix [for]="toDatePicker"></mat-datepicker-toggle>
+            <mat-datepicker #toDatePicker></mat-datepicker>
           </mat-form-field>
 
-          <!-- Item -->
           <mat-form-field appearance="outline" class="filter-field item-field">
             <mat-label>Item</mat-label>
             <mat-select formControlName="itemId">
@@ -46,33 +44,65 @@
                 {{ item.name }}
               </mat-option>
             </mat-select>
-            <input matInput 
-                   placeholder="Search items..." 
-                   (input)="onItemSearch($event)"
-                   class="item-search">
           </mat-form-field>
+        </div>
 
-          <!-- Search Actions -->
-          <div class="filter-actions">
-            <button mat-raised-button color="primary" (click)="onSearch()" class="search-btn">
-              <mat-icon>search</mat-icon>
-              Search
-            </button>
-            <button mat-stroked-button color="accent" (click)="onReset()" class="reset-btn">
-              <mat-icon>refresh</mat-icon>
-              Reset
-            </button>
-          </div>
+        <div class="filter-actions" *ngIf="hasError">
+          <mat-error class="error-message">{{ errorMessage }}</mat-error>
+        </div>
+
+        <div class="filter-actions">
+          <button mat-raised-button color="primary" (click)="onSearch()" [disabled]="hasError">
+            <mat-icon>search</mat-icon>
+            Search
+          </button>
+          <button mat-stroked-button (click)="resetFilters()">
+            <mat-icon>refresh</mat-icon>
+            Reset
+          </button>
         </div>
       </form>
-
-      <!-- Error Message -->
-      <div class="error-message" *ngIf="hasError">
-        <mat-icon>warning</mat-icon>
-        {{ errorMessage }}
-      </div>
     </mat-card-content>
   </mat-card>
+
+  <!-- Summary Cards -->
+  <div class="summary-cards" *ngIf="!isLoading && purchaseItemData.length > 0">
+    <mat-card class="summary-card">
+      <mat-card-content>
+        <div class="summary-content">
+          <div class="summary-label">Total Items</div>
+          <div class="summary-value items">{{ summary.totalItems }}</div>
+        </div>
+      </mat-card-content>
+    </mat-card>
+
+    <mat-card class="summary-card">
+      <mat-card-content>
+        <div class="summary-content">
+          <div class="summary-label">Total Quantity Purchased</div>
+          <div class="summary-value quantity">{{ summary.totalQuantityPurchased }}</div>
+        </div>
+      </mat-card-content>
+    </mat-card>
+
+    <mat-card class="summary-card">
+      <mat-card-content>
+        <div class="summary-content">
+          <div class="summary-label">Total Purchase Amount</div>
+          <div class="summary-value purchase">{{ formatCurrency(summary.totalPurchaseAmount) }}</div>
+        </div>
+      </mat-card-content>
+    </mat-card>
+
+    <mat-card class="summary-card">
+      <mat-card-content>
+        <div class="summary-content">
+          <div class="summary-label">Average Purchase Rate</div>
+          <div class="summary-value avg-rate">{{ formatCurrency(summary.averagePurchaseRate) }}</div>
+        </div>
+      </mat-card-content>
+    </mat-card>
+  </div>
 
   <!-- Loading State -->
   <div class="loading-container" *ngIf="isLoading">
@@ -80,129 +110,62 @@
     <p>Loading purchase item-wise data...</p>
   </div>
 
-  <!-- Summary Cards -->
-  <div class="summary-grid" *ngIf="!isLoading && summary">
-    <mat-card class="summary-card">
-      <mat-card-header>
-        <mat-card-title>
-          <mat-icon>inventory_2</mat-icon>
-          Total Items
-        </mat-card-title>
-      </mat-card-header>
-      <mat-card-content>
-        <div class="summary-value">{{ summary.TotalItems }}</div>
-        <div class="summary-label">Different Items</div>
-      </mat-card-content>
-    </mat-card>
-
-    <mat-card class="summary-card">
-      <mat-card-header>
-        <mat-card-title>
-          <mat-icon>inventory</mat-icon>
-          Total Qty Purchased
-        </mat-card-title>
-      </mat-card-header>
-      <mat-card-content>
-        <div class="summary-value">{{ summary.TotalQtyPurchased }}</div>
-        <div class="summary-label">Total Quantity</div>
-      </mat-card-content>
-    </mat-card>
-
-    <mat-card class="summary-card">
-      <mat-card-header>
-        <mat-card-title>
-          <mat-icon>shopping_cart</mat-icon>
-          Total Purchase
-        </mat-card-title>
-      </mat-card-header>
-      <mat-card-content>
-        <div class="summary-value">{{ summary.TotalPurchase | number:'1.2-2' }}</div>
-        <div class="summary-label">Purchase Amount</div>
-      </mat-card-content>
-    </mat-card>
-
-    <mat-card class="summary-card">
-      <mat-card-header>
-        <mat-card-title>
-          <mat-icon>calculate</mat-icon>
-          Avg Purchase Rate
-        </mat-card-title>
-      </mat-card-header>
-      <mat-card-content>
-        <div class="summary-value">{{ summary.AvgRate | number:'1.2-2' }}</div>
-        <div class="summary-label">Average Rate</div>
-      </mat-card-content>
-    </mat-card>
+  <!-- No Data State -->
+  <div class="no-data-container" *ngIf="!isLoading && purchaseItemData.length === 0">
+    <mat-icon class="no-data-icon">shopping_cart</mat-icon>
+    <h3>No Data Found</h3>
+    <p>No purchase data found for the selected criteria.</p>
   </div>
 
-  <!-- Date Range Info -->
-  <div class="date-range-info" *ngIf="!isLoading && summary && summary.DateRange">
-    <strong>Date Range:</strong> {{ summary.DateRange.From }} to {{ summary.DateRange.To }}
-  </div>
-
-  <!-- Purchase Item-wise Table -->
-  <div class="table-container" *ngIf="!isLoading">
+  <!-- Data Table -->
+  <div class="table-container" *ngIf="!isLoading && purchaseItemData.length > 0">
     <mat-card class="table-card">
-      <mat-card-header>
-        <mat-card-title>Purchase Item-wise Summary</mat-card-title>
-        <mat-card-subtitle>{{ purchaseItemWiseData.length }} items found</mat-card-subtitle>
-      </mat-card-header>
       <mat-card-content>
-        <div class="table-wrapper">
-          <table mat-table [dataSource]="dataSource" class="purchase-item-wise-table">
-            <!-- Item Name Column -->
-            <ng-container matColumnDef="ItemName">
-              <th mat-header-cell *matHeaderCellDef>Item Name</th>
-              <td mat-cell *matCellDef="let row; let i = index">
-                <div class="item-info" [ngClass]="{ 'top-item': isTopItem(i) }">
-                  <span class="rank-icon" *ngIf="isTopItem(i)">{{ getRankIcon(i) }}</span>
-                  <span class="item-name">{{ row.ItemName }}</span>
-                  <span class="top-badge" *ngIf="isTopItem(i)">TOP {{ i + 1 }}</span>
-                </div>
-              </td>
-            </ng-container>
+        <table mat-table [dataSource]="dataSource" class="purchase-item-table">
+          <!-- Item Name Column -->
+          <ng-container matColumnDef="itemName">
+            <th mat-header-cell *matHeaderCellDef>Item Name</th>
+            <td mat-cell *matCellDef="let element; let i = index">
+              <div class="item-name-container" [ngClass]="{ 'top-purchased': isTopPurchasedItem(i) }">
+                <span class="item-name">{{ element.itemName }}</span>
+                <mat-icon class="top-icon" *ngIf="isTopPurchasedItem(i)" matTooltip="Top Purchased Item">trending_up</mat-icon>
+              </div>
+            </td>
+          </ng-container>
 
-            <!-- Qty Purchased Column -->
-            <ng-container matColumnDef="QtyPurchased">
-              <th mat-header-cell *matHeaderCellDef class="text-right">Qty Purchased</th>
-              <td mat-cell *matCellDef="let row; let i = index" class="text-right">
-                <span class="numeric-value" [ngClass]="{ 'top-item-value': isTopItem(i) }">
-                  {{ row.QtyPurchased }}
-                </span>
-              </td>
-            </ng-container>
+          <!-- Qty Purchased Column -->
+          <ng-container matColumnDef="qtyPurchased">
+            <th mat-header-cell *matHeaderCellDef class="numeric-column">Qty Purchased</th>
+            <td mat-cell *matCellDef="let element; let i = index" class="numeric-column">
+              <span [ngClass]="{ 'top-purchased-value': isTopPurchasedItem(i) }">
+                {{ element.qtyPurchased }}
+              </span>
+            </td>
+          </ng-container>
 
-            <!-- Total Purchase Column -->
-            <ng-container matColumnDef="TotalPurchase">
-              <th mat-header-cell *matHeaderCellDef class="text-right">Total Purchase</th>
-              <td mat-cell *matCellDef="let row; let i = index" class="text-right">
-                <span class="numeric-value purchase-value" [ngClass]="{ 'top-item-value': isTopItem(i) }">
-                  {{ row.TotalPurchase | number:'1.2-2' }}
-                </span>
-              </td>
-            </ng-container>
+          <!-- Total Purchase Column -->
+          <ng-container matColumnDef="totalPurchase">
+            <th mat-header-cell *matHeaderCellDef class="numeric-column">Total Purchase</th>
+            <td mat-cell *matCellDef="let element; let i = index" class="numeric-column">
+              <span [ngClass]="{ 'top-purchased-value': isTopPurchasedItem(i) }">
+                {{ formatCurrency(element.totalPurchase) }}
+              </span>
+            </td>
+          </ng-container>
 
-            <!-- Avg Rate Column -->
-            <ng-container matColumnDef="AvgRate">
-              <th mat-header-cell *matHeaderCellDef class="text-right">Avg Purchase Rate</th>
-              <td mat-cell *matCellDef="let row; let i = index" class="text-right">
-                <span class="numeric-value rate-value" [ngClass]="{ 'top-item-value': isTopItem(i) }">
-                  {{ row.AvgRate | number:'1.2-2' }}
-                </span>
-              </td>
-            </ng-container>
+          <!-- Avg Purchase Rate Column -->
+          <ng-container matColumnDef="avgPurchaseRate">
+            <th mat-header-cell *matHeaderCellDef class="numeric-column">Avg Purchase Rate</th>
+            <td mat-cell *matCellDef="let element; let i = index" class="numeric-column">
+              <span [ngClass]="{ 'top-purchased-value': isTopPurchasedItem(i) }">
+                {{ formatCurrency(element.avgPurchaseRate) }}
+              </span>
+            </td>
+          </ng-container>
 
-            <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
-            <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
-          </table>
-        </div>
-
-        <!-- No Data Message -->
-        <div class="no-data" *ngIf="!isLoading && purchaseItemWiseData.length === 0">
-          <mat-icon>inventory_2</mat-icon>
-          <h3>No Purchase Items Found</h3>
-          <p>No purchase items found for the selected criteria.</p>
-        </div>
+          <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+          <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+        </table>
       </mat-card-content>
     </mat-card>
   </div>

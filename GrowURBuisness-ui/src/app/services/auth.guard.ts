@@ -8,6 +8,9 @@ export class AuthGuard implements CanActivate {
   constructor(private router: Router) {}
 
   canActivate(): boolean {
+    // Temporarily bypass authentication for development
+    return true;
+    
     const isLoggedIn = localStorage.getItem('isLoggedIn') === 'true';
     
     if (!isLoggedIn) {

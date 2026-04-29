@@ -1,51 +1,244 @@
 <div class="container">
-  <h2>{{ title }}</h2>
+  <div class="header-section">
+    <h2>{{ title }}</h2>
+    <div class="header-buttons">
+      <button mat-raised-button color="accent" (click)="goBackToReports()" class="back-btn">
+        <mat-icon>arrow_back</mat-icon>
+        Back to Reports
+      </button>
+      <button mat-raised-button color="primary" (click)="exportToExcel()" class="export-btn" [disabled]="isLoading || salesData.length === 0">
+        <mat-icon>file_download</mat-icon>
+        Export to Excel
+      </button>
+    </div>
+  </div>
 
-  <div class="stats-grid">
-    <mat-card class="stats-card">
+  <!-- Filters Section -->
+  <mat-card class="filters-card">
+    <mat-card-header>
+      <mat-card-title>Filters</mat-card-title>
+    </mat-card-header>
+    <mat-card-content>
+      <form [formGroup]="filterForm" class="filter-form">
+        <div class="filter-row">
+          <mat-form-field appearance="outline" class="filter-field">
+            <mat-label>From Date</mat-label>
+            <input matInput [matDatepicker]="fromPicker" formControlName="fromDate">
+            <mat-datepicker-toggle matSuffix [for]="fromPicker"></mat-datepicker-toggle>
+            <mat-datepicker #fromPicker></mat-datepicker>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="filter-field">
+            <mat-label>To Date</mat-label>
+            <input matInput [matDatepicker]="toPicker" formControlName="toDate">
+            <mat-datepicker-toggle matSuffix [for]="toPicker"></mat-datepicker-toggle>
+            <mat-datepicker #toPicker></mat-datepicker>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="filter-field customer-field">
+            <mat-label>Customer</mat-label>
+            <mat-select formControlName="customerId">
+              <mat-option value="">All Customers</mat-option>
+              <mat-option *ngFor="let customer of filteredCustomers" [value]="customer.id">
+                {{ customer.name }}
+              </mat-option>
+            </mat-select>
+            <mat-icon matSuffix>search</mat-icon>
+            <input matInput 
+                   placeholder="Search customers..." 
+                   (input)="onCustomerSearch($event)"
+                   class="customer-search">
+          </mat-form-field>
+
+          <button mat-raised-button color="primary" (click)="onSearch()" class="search-btn">
+            <mat-icon>search</mat-icon>
+            Search
+          </button>
+
+          <button mat-raised-button color="accent" (click)="resetFilters()" class="reset-btn">
+            <mat-icon>refresh</mat-icon>
+            Reset
+          </button>
+        </div>
+        
+        <!-- Error Message -->
+        <div class="error-message" *ngIf="hasError">
+          <mat-icon color="warn">error</mat-icon>
+          <span>{{ errorMessage }}</span>
+        </div>
+      </form>
+    </mat-card-content>
+  </mat-card>
+
+  <!-- Date Range Display -->
+  <div class="date-range-info" *ngIf="summary.dateRange.from || summary.dateRange.to">
+    <span>Showing data from: <strong>{{ summary.dateRange.from }}</strong> to <strong>{{ summary.dateRange.to }}</strong></span>
+  </div>
+
+  <!-- Loading Spinner -->
+  <div class="loading-container" *ngIf="isLoading">
+    <mat-spinner></mat-spinner>
+    <p>Loading sales report...</p>
+  </div>
+
+  <!-- Summary Cards -->
+  <div class="summary-grid" *ngIf="!isLoading">
+    <mat-card class="summary-card">
       <mat-card-header>
-        <mat-card-title>Total Sales</mat-card-title>
+        <mat-card-title>
+          <mat-icon>payments</mat-icon>
+          Total Sales
+        </mat-card-title>
       </mat-card-header>
       <mat-card-content>
-        <div class="stats-value">{{ totalSales | number:'1.2-2' }}</div>
+        <div class="summary-value">{{ formatCurrency(summary.totalSales || 0) }}</div>
+        <div class="summary-label">Total Revenue</div>
       </mat-card-content>
     </mat-card>
 
-    <mat-card class="stats-card">
+    <mat-card class="summary-card">
       <mat-card-header>
-        <mat-card-title>Total Invoices</mat-card-title>
+        <mat-card-title>
+          <mat-icon>receipt</mat-icon>
+          Total Orders
+        </mat-card-title>
       </mat-card-header>
       <mat-card-content>
-        <div class="stats-value">{{ totalInvoices }}</div>
+        <div class="summary-value">{{ summary.totalOrders || 0 }}</div>
+        <div class="summary-label">Sales Orders</div>
+      </mat-card-content>
+    </mat-card>
+
+    <mat-card class="summary-card">
+      <mat-card-header>
+        <mat-card-title>
+          <mat-icon>inventory_2</mat-icon>
+          Total Items
+        </mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <div class="summary-value">{{ summary.totalItems || 0 }}</div>
+        <div class="summary-label">Items Sold</div>
       </mat-card-content>
     </mat-card>
   </div>
 
-  <div class="table-container">
+  <!-- Sales Data Table -->
+  <div class="table-container" *ngIf="!isLoading">
     <mat-card>
       <mat-card-header>
-        <mat-card-title>Daily Sales</mat-card-title>
+        <mat-card-title>Sales Report Details</mat-card-title>
+        <mat-card-subtitle *ngIf="salesData.length > 0">
+          Showing {{ salesData.length }} items
+        </mat-card-subtitle>
       </mat-card-header>
       <mat-card-content>
-        <table mat-table [dataSource]="salesData" class="mat-elevation-z1">
-          <ng-container matColumnDef="date">
-            <th mat-header-cell *matHeaderCellDef> Date </th>
-            <td mat-cell *matCellDef="let row"> {{row.date | date:'medium'}} </td>
-          </ng-container>
+        <!-- No Data Message -->
+        <div class="no-data" *ngIf="salesData.length === 0">
+          <mat-icon>inbox</mat-icon>
+          <p>No sales data found for the selected criteria</p>
+        </div>
 
-          <ng-container matColumnDef="totalSales">
-            <th mat-header-cell *matHeaderCellDef> Total Sales </th>
-            <td mat-cell *matCellDef="let row"> {{row.totalSales | number:'1.2-2'}} </td>
-          </ng-container>
+        <!-- Data Table -->
+        <div class="table-wrapper" *ngIf="salesData.length > 0">
+          <div class="table-container-scroll">
+            <table mat-table [dataSource]="dataSource" class="sales-table">
+            <!-- Sales Order No Column -->
+            <ng-container matColumnDef="SalesOrderNo">
+              <th mat-header-cell *matHeaderCellDef> Sales Order No </th>
+              <td mat-cell *matCellDef="let row"> 
+                <span class="order-no">{{ row.salesOrderNo }}</span>
+              </td>
+            </ng-container>
 
-          <ng-container matColumnDef="invoiceCount">
-            <th mat-header-cell *matHeaderCellDef> Invoice Count </th>
-            <td mat-cell *matCellDef="let row"> {{row.invoiceCount}} </td>
-          </ng-container>
+            <!-- Customer Name Column -->
+            <ng-container matColumnDef="CustomerName">
+              <th mat-header-cell *matHeaderCellDef> Customer Name </th>
+              <td mat-cell *matCellDef="let row"> 
+                <span class="customer-name">{{ row.customerName }}</span>
+              </td>
+            </ng-container>
 
-          <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
-          <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
-        </table>
+            <!-- Date Column -->
+            <ng-container matColumnDef="Date">
+              <th mat-header-cell *matHeaderCellDef> Date </th>
+              <td mat-cell *matCellDef="let row"> 
+                {{ formatDate(row.date) }}
+              </td>
+            </ng-container>
+
+            <!-- Item Name Column -->
+            <ng-container matColumnDef="ItemName">
+              <th mat-header-cell *matHeaderCellDef> Item Name </th>
+              <td mat-cell *matCellDef="let row"> 
+                <span class="item-name">{{ row.itemName }}</span>
+              </td>
+            </ng-container>
+
+            <!-- Item Rate Column -->
+            <ng-container matColumnDef="ItemRate">
+              <th mat-header-cell *matHeaderCellDef class="text-right"> Item Rate </th>
+              <td mat-cell *matCellDef="let row" class="text-right"> 
+                {{ formatCurrency(row.itemRate) }}
+              </td>
+            </ng-container>
+
+            <!-- Quantity Column -->
+            <ng-container matColumnDef="Quantity">
+              <th mat-header-cell *matHeaderCellDef class="text-right"> Quantity </th>
+              <td mat-cell *matCellDef="let row" class="text-right"> 
+                {{ row.quantity }}
+              </td>
+            </ng-container>
+
+            <!-- Amount Column -->
+            <ng-container matColumnDef="Amount">
+              <th mat-header-cell *matHeaderCellDef class="text-right"> Amount </th>
+              <td mat-cell *matCellDef="let row" class="text-right amount-cell"> 
+                {{ formatCurrency(row.amount) }}
+              </td>
+            </ng-container>
+
+            <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+            <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+          </table>
+          </div>
+        </div>
+
+        <!-- Pagination Controls -->
+        <div class="pagination-container" *ngIf="pagination.totalPages > 1">
+          <div class="pagination-info">
+            <span>Showing {{ (pagination.currentPage - 1) * pagination.pageSize + 1 }} to 
+              {{ getEndRecordCount() }} 
+              of {{ pagination.totalCount }} records</span>
+          </div>
+          
+          <div class="pagination-controls">
+            <button mat-icon-button 
+                    (click)="onPreviousPage()" 
+                    [disabled]="!pagination.hasPreviousPage"
+                    matTooltip="Previous Page">
+              <mat-icon>chevron_left</mat-icon>
+            </button>
+            
+            <div class="page-numbers">
+              <button mat-icon-button 
+                      *ngFor="let page of getPageNumbers()" 
+                      (click)="onPageChange(page)"
+                      [class.active]="page === pagination.currentPage"
+                      matTooltip="Page {{ page }}">
+                {{ page }}
+              </button>
+            </div>
+            
+            <button mat-icon-button 
+                    (click)="onNextPage()" 
+                    [disabled]="!pagination.hasNextPage"
+                    matTooltip="Next Page">
+              <mat-icon>chevron_right</mat-icon>
+            </button>
+          </div>
+        </div>
       </mat-card-content>
     </mat-card>
   </div>

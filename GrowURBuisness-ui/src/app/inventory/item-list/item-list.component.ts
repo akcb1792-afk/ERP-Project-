@@ -95,6 +95,6 @@ export class ItemListComponent implements OnInit {
   calculateSummaryData(items: any[]): void {
     this.totalItems = items.length;
     this.totalStockQuantity = items.reduce((sum, item) => sum + (item.stock || item.stockQuantity || 0), 0);
-    this.totalInventoryValue = items.reduce((sum, item) => sum + ((item.stock || item.stockQuantity || 0) * (item.price || 0)), 0);
+    this.totalInventoryValue = items.reduce((sum, item) => sum + ((item.stock || item.stockQuantity || 0) * (item.averageRate || 0)), 0);
   }
 }

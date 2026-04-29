@@ -25,29 +25,48 @@ namespace GrowURBuisness.API.Controllers
                 var items = await _context.Items
                     .Include(i => i.Category)
                     .Where(i => i.IsActive)
-                    .Select(i => new
-                    {
-                        i.Id,
-                        i.Name,
-                        i.Description,
-                        i.CategoryId,
-                        CategoryName = i.Category != null ? i.Category.Name : "",
-                        i.Price,
-                        i.StockQuantity,
-                        i.MinimumStock,
-                        i.Unit,
-                        i.CreatedDate,
-                        i.LastModifiedDate,
-                        i.IsActive
-                    })
                     .ToListAsync();
 
-                return Ok(items);
+                var result = items.Select(i => new
+                {
+                    i.Id,
+                    i.Name,
+                    i.Description,
+                    i.CategoryId,
+                    CategoryName = i.Category != null ? i.Category.Name : "",
+                    i.Price,
+                    AverageRate = CalculateAverageRate(i.Id),
+                    i.StockQuantity,
+                    i.MinimumStock,
+                    i.Unit,
+                    i.CreatedDate,
+                    i.LastModifiedDate,
+                    i.IsActive
+                }).ToList();
+
+                return Ok(result);
             }
             catch (Exception ex)
             {
                 return StatusCode(500, new { error = ex.Message });
             }
+        }
+
+        private decimal CalculateAverageRate(int itemId)
+        {
+            var purchaseItems = _context.PurchaseOrderItems
+                .Where(poi => poi.ItemId == itemId)
+                .ToList();
+
+            if (purchaseItems.Any())
+            {
+                return purchaseItems.Average(poi => poi.UnitPrice);
+            }
+
+            return _context.Items
+                .Where(i => i.Id == itemId)
+                .Select(i => i.Price)
+                .FirstOrDefault();
         }
 
         // GET: api/inventory/items/5
@@ -297,5 +316,6 @@ namespace GrowURBuisness.API.Controllers
 
             return Ok(items);
         }
-    }
+
+        }
 }

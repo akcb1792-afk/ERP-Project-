@@ -1,12 +1,19 @@
 <div class="dashboard-layout">
   <!-- Sidebar -->
   <div class="sidebar" id="sidebar">
-    <div class="sidebar-header">
-      <div class="logo-container">
-        <div class="logo-icon">ERP</div>
-        <div class="logo-text">GrowURBuisness</div>
+        
+    <!-- User Info Section -->
+    <div class="sidebar-user-info">
+      <div class="user-row">
+        <div class="user-icon">👤</div>
+        <div class="user-text">
+          <div class="user-name">Demo User</div>
+          <div class="user-email">demo&#64;company.com</div>
+        </div>
+        <button class="logout-icon-btn" (click)="logout()">
+          <div class="logout-symbol">⏚</div>
+        </button>
       </div>
-      <button class="sidebar-toggle" (click)="toggleSidebar()">×</button>
     </div>
     
     <nav class="sidebar-nav">
@@ -50,18 +57,6 @@
               <div class="nav-text">Reports</div>
             </a>
           </div>
-        </div>
-      </div>
-      
-      <div class="nav-section">
-        <div class="section-title">Settings</div>
-        <div class="nav-list">
-          <div class="nav-item">
-            <a routerLink="/dashboard" class="nav-link">
-              <div class="nav-icon settings-icon"></div>
-              <div class="nav-text">Settings</div>
-            </a>
-          </div>
           <div class="nav-item">
             <a (click)="logout()" class="nav-link logout">
               <div class="nav-icon logout-icon"></div>
@@ -75,15 +70,7 @@
   
   <!-- Main Content -->
   <div class="main-content">
-    <div class="top-bar">
-      <button class="mobile-menu-toggle" (click)="toggleSidebar()">
-        <span>Menu</span>
-      </button>
-      <div class="user-info">
-        <span class="user-email">{{ getUserEmail() }}</span>
-      </div>
-    </div>
-    
+            
     <div class="content-area">
       <router-outlet></router-outlet>
     </div>

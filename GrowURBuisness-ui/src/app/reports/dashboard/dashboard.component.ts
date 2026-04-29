@@ -27,6 +27,10 @@ export class DashboardComponent {
     this.router.navigate(['/reports/day-book']);
   }
 
+  navigateToItemWiseSales(): void {
+    this.router.navigate(['/reports/item-wise-sales']);
+  }
+
   navigateToTopCustomers(): void {
     this.router.navigate(['/reports/top-customers']);
   }
@@ -37,13 +41,5 @@ export class DashboardComponent {
 
   navigateToSupplierLedger(): void {
     this.router.navigate(['/reports/supplier-ledger']);
-  }
-
-  navigateToItemWiseSales(): void {
-    this.router.navigate(['/reports/item-wise-sales']);
-  }
-
-  navigateToTopSuppliers(): void {
-    this.router.navigate(['/reports/top-suppliers']);
   }
 }

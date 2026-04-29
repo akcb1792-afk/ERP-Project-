@@ -1,4 +1,5 @@
 import { Component, OnInit } from '@angular/core';
+import { FormBuilder, FormGroup } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
 
@@ -8,105 +9,151 @@ import { environment } from '../../../environments/environment';
   styleUrls: ['./inventory-report.component.scss']
 })
 export class InventoryReportComponent implements OnInit {
+  title = 'Inventory Report';
+  
+  // Data properties
   inventoryData: any[] = [];
   filteredInventoryData: any[] = [];
+  summary: any = {};
+  categories: any[] = [];
+  
+  // UI properties
   isLoading = false;
   error: string | null = null;
-  lowStockThreshold: number = 10;
+  filterForm: FormGroup;
+  
+  // Table columns
+  displayedColumns = ['id', 'name', 'category', 'price', 'stockQuantity', 'minimumStock', 'stockStatus', 'stockValue', 'totalSold', 'totalPurchased', 'reorderNeeded'];
 
-  constructor(private http: HttpClient) {}
+  constructor(
+    private fb: FormBuilder,
+    private http: HttpClient
+  ) {
+    this.filterForm = this.fb.group({
+      categoryId: [''],
+      status: ['']
+    });
+  }
 
   ngOnInit() {
     this.loadInventoryReport();
+    
+    // Subscribe to form changes
+    this.filterForm.valueChanges.subscribe(() => {
+      this.applyFilters();
+    });
   }
-
-  displayedColumns: string[] = ['name', 'itemCode', 'purchaseRate', 'saleRate', 'totalValue'];
 
   loadInventoryReport(): void {
     this.isLoading = true;
     this.error = null;
     
-    this.http.get<any[]>(`${environment.apiUrl}/inventory/items`).subscribe({
-      next: (items) => {
-        this.inventoryData = items;
-        this.filteredInventoryData = items;
+    const params = new URLSearchParams();
+    const categoryId = this.filterForm.get('categoryId')?.value;
+    const status = this.filterForm.get('status')?.value;
+    
+    if (categoryId) params.append('categoryId', categoryId);
+    if (status) params.append('status', status);
+    
+    const url = params.toString() ? 
+      `${environment.apiUrl}/reports/inventory?${params.toString()}` : 
+      `${environment.apiUrl}/reports/inventory`;
+    
+    this.http.get<any>(url).subscribe({
+      next: (response) => {
+        this.inventoryData = response.Inventory || [];
+        this.summary = response.Summary || {};
+        this.categories = this.summary.Categories || [];
+        this.filteredInventoryData = [...this.inventoryData];
         this.isLoading = false;
       },
       error: (error: any) => {
         this.error = 'Failed to load inventory report';
         this.isLoading = false;
+        console.error('Error loading inventory report:', error);
+        this.inventoryData = [];
+        this.filteredInventoryData = [];
+        this.summary = {};
+        this.categories = [];
       }
     });
   }
 
-  getUniqueCategories(): string[] {
-    const categories = [...new Set(this.inventoryData.map(item => item.category).filter(Boolean))];
-    return categories.sort();
+  applyFilters(): void {
+    this.loadInventoryReport();
   }
 
-  getTotalInventoryValue(): number {
-    return this.inventoryData.reduce((total, item) => {
-      return total + this.getTotalValue(item);
-    }, 0);
+  resetFilters(): void {
+    this.filterForm.reset();
   }
 
-  getTotalValue(item: any): number {
-    const quantity = item.stockQuantity || item.stock || 0;
-    const rate = item.purchaseRate || item.price || 0;
-    return quantity * rate;
-  }
-
-  applyFilter(event: any): void {
+  applyTextFilter(event: any): void {
     const filterValue = event.target.value.toLowerCase();
     this.filteredInventoryData = this.inventoryData.filter(item => 
       item.name.toLowerCase().includes(filterValue) ||
       item.category.toLowerCase().includes(filterValue) ||
-      (item.itemCode && item.itemCode.toLowerCase().includes(filterValue))
+      item.description?.toLowerCase().includes(filterValue)
     );
   }
 
-  applyItemFilter(itemName: string): void {
-    if (itemName) {
-      this.filteredInventoryData = this.inventoryData.filter(item => 
-        item.name === itemName
-      );
-    } else {
-      this.filteredInventoryData = this.inventoryData;
+  formatCurrency(amount: number): string {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD'
+    }).format(amount);
+  }
+
+  getStockStatusColor(status: string): string {
+    switch (status?.toLowerCase()) {
+      case 'in stock':
+        return '#4caf50';
+      case 'low stock':
+        return '#ff9800';
+      case 'out of stock':
+        return '#f44336';
+      default:
+        return '#666';
     }
   }
 
-  applyCategoryFilter(category: string): void {
-    if (category) {
-      this.filteredInventoryData = this.inventoryData.filter(item => 
-        item.category === category
-      );
-    } else {
-      this.filteredInventoryData = this.inventoryData;
-    }
+  getReorderStatusColor(reorderNeeded: boolean): string {
+    return reorderNeeded ? '#f44336' : '#4caf50';
   }
 
   exportToExcel(): void {
     // Create CSV content for Excel export
     const headers = [
-      'Item Name',
-      'Item Code',
+      'ID',
+      'Name',
+      'Description',
       'Category',
-      'Purchase Rate',
-      'Sale Rate',
-      'Total Value'
+      'Price',
+      'Stock Quantity',
+      'Minimum Stock',
+      'Stock Status',
+      'Stock Value',
+      'Total Sold',
+      'Total Purchased',
+      'Reorder Needed',
+      'Last Modified'
     ];
 
     const csvContent = [
       headers.join(','),
       ...this.filteredInventoryData.map(item => [
-        `"${item.name}"`,
-        `"${item.itemCode || item.id || ''}"`,
-        `"${item.category}"`,
-        item.stockQuantity || item.stock || 0,
-        item.purchaseRate || item.price || 0,
-        item.saleRate || (item.price * 1.2) || 0,
-        this.getTotalValue(item),
-        `"In Stock"`
+        item.Id,
+        `"${item.Name}"`,
+        `"${item.Description || ''}"`,
+        `"${item.Category}"`,
+        item.Price || 0,
+        item.StockQuantity || 0,
+        item.MinimumStock || 0,
+        `"${item.StockStatus}"`,
+        item.StockValue || 0,
+        item.TotalSold || 0,
+        item.TotalPurchased || 0,
+        item.ReorderNeeded ? 'Yes' : 'No',
+        `"${new Date(item.LastModifiedDate).toLocaleDateString()}"`
       ].join(','))
     ].join('\n');
 
@@ -124,5 +171,23 @@ export class InventoryReportComponent implements OnInit {
     document.body.removeChild(link);
     
     URL.revokeObjectURL(url);
+  }
+
+  getUniqueCategories(): string[] {
+    return this.categories.map((cat: any) => cat.Category);
+  }
+
+  getTotalInventoryValue(): number {
+    return this.filteredInventoryData.reduce((total: number, item: any) => {
+      return total + ((item.StockQuantity || 0) * (item.Price || 0));
+    }, 0);
+  }
+
+  getTotalValue(item: any): number {
+    return (item.StockQuantity || 0) * (item.Price || 0);
+  }
+
+  applyFilter(event: any): void {
+    this.applyTextFilter(event);
   }
 }

@@ -1,9 +1,28 @@
 import { Component, OnInit } from '@angular/core';
-import { FormBuilder, FormGroup } from '@angular/forms';
+import { FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
-import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatTableDataSource } from '@angular/material/table';
+import { Router } from '@angular/router';
 import { environment } from '../../../environments/environment';
+
+export interface PurchaseItemWiseEntry {
+  itemId: number;
+  itemName: string;
+  qtyPurchased: number;
+  totalPurchase: number;
+  avgPurchaseRate: number;
+}
+
+export interface PurchaseItemWiseSummary {
+  totalItems: number;
+  totalQuantityPurchased: number;
+  totalPurchaseAmount: number;
+  averagePurchaseRate: number;
+  dateRange: {
+    from: string;
+    to: string;
+  };
+}
 
 export interface Item {
   id: number;
@@ -11,25 +30,10 @@ export interface Item {
   description: string;
   price: number;
   stockQuantity: number;
+  minimumStock: number;
+  unit: string;
+  categoryId: number;
   isActive: boolean;
-}
-
-export interface PurchaseItemWiseData {
-  ItemName: string;
-  QtyPurchased: number;
-  TotalPurchase: number;
-  AvgRate: number;
-}
-
-export interface PurchaseItemWiseSummary {
-  TotalItems: number;
-  TotalQtyPurchased: number;
-  TotalPurchase: number;
-  AvgRate: number;
-  DateRange: {
-    From: string;
-    To: string;
-  };
 }
 
 @Component({
@@ -40,32 +44,31 @@ export interface PurchaseItemWiseSummary {
 export class PurchaseItemWiseComponent implements OnInit {
   title = 'Purchase Item-wise Report';
   
-  // Data
+  purchaseItemData: PurchaseItemWiseEntry[] = [];
+  displayedColumns = ['itemName', 'qtyPurchased', 'totalPurchase', 'avgPurchaseRate'];
+  dataSource = new MatTableDataSource<PurchaseItemWiseEntry>();
+  isLoading = false;
+  
+  // Summary data
+  summary: PurchaseItemWiseSummary = {
+    totalItems: 0,
+    totalQuantityPurchased: 0,
+    totalPurchaseAmount: 0,
+    averagePurchaseRate: 0,
+    dateRange: { from: 'All Time', to: 'All Time' }
+  };
+  
+  // Form for filtering
+  filterForm: FormGroup;
   items: Item[] = [];
   filteredItems: Item[] = [];
-  purchaseItemWiseData: PurchaseItemWiseData[] = [];
-  summary: PurchaseItemWiseSummary | null = null;
-  dataSource: MatTableDataSource<PurchaseItemWiseData>;
   
-  // UI State
-  isLoading = false;
-  hasError = false;
+  // Error handling
   errorMessage: string = '';
-  
-  // Form
-  filterForm: FormGroup;
-  
-  // Table
-  displayedColumns = ['ItemName', 'QtyPurchased', 'TotalPurchase', 'AvgRate'];
+  hasError: boolean = false;
 
-  constructor(
-    private fb: FormBuilder,
-    private http: HttpClient,
-    private snackBar: MatSnackBar
-  ) {
-    this.dataSource = new MatTableDataSource<PurchaseItemWiseData>();
-    
-    // Set default date range (current month)
+  constructor(private http: HttpClient, private fb: FormBuilder, private router: Router) {
+    // Set default date range from 1st day of current month to today
     const today = new Date();
     const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
     
@@ -76,16 +79,17 @@ export class PurchaseItemWiseComponent implements OnInit {
     });
   }
 
-  ngOnInit(): void {
+  ngOnInit() {
     this.loadItems();
-    this.loadPurchaseItemWiseData();
+    this.loadPurchaseItemWise();
   }
 
   loadItems(): void {
-    this.http.get<Item[]>(`${environment.apiUrl}/billing/items`).subscribe({
+    this.http.get<Item[]>(`${environment.apiUrl}/Item`).subscribe({
       next: (items) => {
-        this.items = items.filter(item => item.isActive);
+        this.items = items;
         this.filteredItems = this.items;
+        console.log('Loaded items:', this.items);
       },
       error: (error) => {
         console.error('Error loading items:', error);
@@ -104,45 +108,27 @@ export class PurchaseItemWiseComponent implements OnInit {
     const fromDate = this.filterForm.get('fromDate')?.value;
     const toDate = this.filterForm.get('toDate')?.value;
     
+    this.hasError = false;
+    this.errorMessage = '';
+    
     if (fromDate && toDate) {
       const from = new Date(fromDate);
       const to = new Date(toDate);
-      
       if (from > to) {
         this.hasError = true;
         this.errorMessage = 'From Date cannot be greater than To Date';
-        return;
       }
     }
-    
-    this.hasError = false;
-    this.errorMessage = '';
   }
 
   onSearch(): void {
     this.validateDates();
     if (!this.hasError) {
-      this.loadPurchaseItemWiseData();
+      this.loadPurchaseItemWise();
     }
   }
 
-  onReset(): void {
-    // Reset to default date range
-    const today = new Date();
-    const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-    
-    this.filterForm.patchValue({
-      fromDate: firstDayOfMonth.toISOString().split('T')[0],
-      toDate: today.toISOString().split('T')[0],
-      itemId: ''
-    });
-    
-    this.hasError = false;
-    this.errorMessage = '';
-    this.loadPurchaseItemWiseData();
-  }
-
-  loadPurchaseItemWiseData(): void {
+  loadPurchaseItemWise(): void {
     if (this.hasError) return;
     
     this.isLoading = true;
@@ -152,122 +138,150 @@ export class PurchaseItemWiseComponent implements OnInit {
     const toDate = this.filterForm.get('toDate')?.value;
     const itemId = this.filterForm.get('itemId')?.value;
     
-    // Handle timezone by creating date in local timezone and formatting as YYYY-MM-DD
     if (fromDate) {
+      // Handle timezone by creating date in local timezone and formatting as YYYY-MM-DD
       const date = new Date(fromDate);
       const year = date.getFullYear();
       const month = String(date.getMonth() + 1).padStart(2, '0');
       const day = String(date.getDate()).padStart(2, '0');
       const formattedFromDate = `${year}-${month}-${day}`;
       params.append('fromDate', formattedFromDate);
-      console.log('From Date:', fromDate, 'Formatted:', formattedFromDate);
+      console.log('Purchase Item From Date:', fromDate, 'Formatted:', formattedFromDate);
     }
     if (toDate) {
+      // Handle timezone by creating date in local timezone and formatting as YYYY-MM-DD
       const date = new Date(toDate);
       const year = date.getFullYear();
       const month = String(date.getMonth() + 1).padStart(2, '0');
       const day = String(date.getDate()).padStart(2, '0');
       const formattedToDate = `${year}-${month}-${day}`;
       params.append('toDate', formattedToDate);
-      console.log('To Date:', toDate, 'Formatted:', formattedToDate);
+      console.log('Purchase Item To Date:', toDate, 'Formatted:', formattedToDate);
     }
     if (itemId) params.append('itemId', itemId);
     
     const url = `${environment.apiUrl}/reports/purchase-item-wise?${params.toString()}`;
-    console.log('API URL:', url);
+    console.log('Purchase Item-wise API URL:', url);
     
     this.http.get<any>(url).subscribe({
       next: (response) => {
         console.log('API Response:', response);
+        console.log('Response data:', response.data);
+        console.log('Response summary:', response.summary);
         
-        // Map API response to frontend interface (handle lowercase property names)
-        this.purchaseItemWiseData = (response.data || []).map((item: any) => ({
-          ItemName: item.itemName,
-          QtyPurchased: item.qtyPurchased,
-          TotalPurchase: item.totalPurchase,
-          AvgRate: item.avgRate
-        }));
+        // Handle different response structures
+        if (response.data && Array.isArray(response.data)) {
+          this.purchaseItemData = response.data;
+        } else if (Array.isArray(response)) {
+          this.purchaseItemData = response;
+        } else {
+          this.purchaseItemData = [];
+        }
         
-        // Map summary response
-        this.summary = response.summary ? {
-          TotalItems: response.summary.totalItems || response.summary.TotalItems,
-          TotalQtyPurchased: response.summary.totalQtyPurchased || response.summary.TotalQtyPurchased,
-          TotalPurchase: response.summary.totalPurchase || response.summary.TotalPurchase,
-          AvgRate: response.summary.avgRate || response.summary.AvgRate,
-          DateRange: response.summary.dateRange || response.summary.DateRange
-        } : null;
+        // Handle summary data
+        if (response.summary) {
+          // Map lowercase API response to capitalized interface
+          this.summary = {
+            totalItems: response.summary.totalItems || 0,
+            totalQuantityPurchased: response.summary.totalQuantityPurchased || 0,
+            totalPurchaseAmount: response.summary.totalPurchaseAmount || 0,
+            averagePurchaseRate: response.summary.averagePurchaseRate || 0,
+            dateRange: {
+              from: response.summary.dateRange?.from || 'All Time',
+              to: response.summary.dateRange?.to || 'All Time'
+            }
+          };
+        } else {
+          // Calculate summary from data if not provided
+          this.summary = {
+            totalItems: this.purchaseItemData.length,
+            totalQuantityPurchased: this.purchaseItemData.reduce((sum, item) => sum + (item.qtyPurchased || 0), 0),
+            totalPurchaseAmount: this.purchaseItemData.reduce((sum, item) => sum + (item.totalPurchase || 0), 0),
+            averagePurchaseRate: this.purchaseItemData.length > 0 ? 
+              this.purchaseItemData.reduce((sum, item) => sum + (item.avgPurchaseRate || 0), 0) / this.purchaseItemData.length : 0,
+            dateRange: { from: 'All Time', to: 'All Time' }
+          };
+        }
         
-        this.dataSource.data = this.purchaseItemWiseData;
-        console.log('Purchase Item-wise Data:', this.purchaseItemWiseData);
-        console.log('Summary:', this.summary);
+        this.dataSource.data = this.purchaseItemData;
+        console.log('Processed Purchase Item Data:', this.purchaseItemData);
+        console.log('Processed Summary:', this.summary);
         this.isLoading = false;
       },
-      error: (error) => {
-        console.error('Error loading purchase item-wise data:', error);
-        this.snackBar.open('Error loading purchase item-wise data. Please try again.', 'Close', {
-          duration: 3000
-        });
+      error: (error: any) => {
+        console.error('Error loading purchase item-wise:', error);
+        this.purchaseItemData = [];
+        this.dataSource.data = [];
+        this.summary = {
+          totalItems: 0,
+          totalQuantityPurchased: 0,
+          totalPurchaseAmount: 0,
+          averagePurchaseRate: 0,
+          dateRange: { from: 'All Time', to: 'All Time' }
+        };
         this.isLoading = false;
       }
     });
   }
 
-  isTopItem(index: number): boolean {
-    return index < 3; // Top 3 items
-  }
-
-  getRankIcon(index: number): string {
-    switch (index) {
-      case 0: return '🥇'; // Gold medal
-      case 1: return '🥈'; // Silver medal
-      case 2: return '🥉'; // Bronze medal
-      default: return '';
-    }
+  resetFilters(): void {
+    this.filterForm.reset();
+    this.hasError = false;
+    this.errorMessage = '';
+    this.filteredItems = this.items;
+    const today = new Date();
+    const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+    this.filterForm.patchValue({
+      fromDate: firstDayOfMonth.toISOString().split('T')[0],
+      toDate: today.toISOString().split('T')[0],
+      itemId: ''
+    });
+    this.loadPurchaseItemWise();
   }
 
   exportToExcel(): void {
-    if (!this.purchaseItemWiseData || this.purchaseItemWiseData.length === 0) {
-      this.snackBar.open('No data to export', 'Close', { duration: 3000 });
+    if (this.purchaseItemData.length === 0) {
+      alert('No data available to export');
       return;
     }
 
     // Create CSV content
     const headers = ['Item Name', 'Qty Purchased', 'Total Purchase', 'Avg Purchase Rate'];
-    const csvRows = [
+    const csvContent = [
       headers.join(','),
-      ...this.purchaseItemWiseData.map((row, index) => [
-        `"${row.ItemName}"`,
-        row.QtyPurchased,
-        row.TotalPurchase,
-        row.AvgRate
+      ...this.purchaseItemData.map(item => [
+        `"${item.itemName}"`,
+        item.qtyPurchased,
+        item.totalPurchase,
+        item.avgPurchaseRate
       ].join(','))
-    ];
+    ].join('\n');
 
-    // Add summary at the end
-    if (this.summary) {
-      csvRows.push('\n\nSummary');
-      csvRows.push(`Total Items,${this.summary.TotalItems}`);
-      csvRows.push(`Total Qty Purchased,${this.summary.TotalQtyPurchased}`);
-      csvRows.push(`Total Purchase,${this.summary.TotalPurchase}`);
-      csvRows.push(`Avg Rate,${this.summary.AvgRate}`);
-    }
-
-    const csvContent = csvRows.join('\n');
-
-    // Create and download file
-    const blob = new Blob([csvContent], { type: 'text/csv' });
-    const url = window.URL.createObjectURL(blob);
+    // Create blob and download
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
-    link.href = url;
-    link.download = `Purchase_Item_Wise.csv`;
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', 'Purchase_Item_Wise.csv');
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
     link.click();
-    window.URL.revokeObjectURL(url);
-
-    this.snackBar.open('Purchase Item-wise exported successfully', 'Close', { duration: 3000 });
+    document.body.removeChild(link);
   }
 
-  backToReports(): void {
-    // Navigate back to reports page
-    window.history.back();
+  formatCurrency(amount: number): string {
+    return new Intl.NumberFormat('en-US', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    }).format(amount);
+  }
+
+  isTopPurchasedItem(index: number): boolean {
+    // Highlight top 3 purchased items
+    return index < 3 && this.purchaseItemData.length > 0;
+  }
+
+  goBackToReports(): void {
+    this.router.navigate(['/reports']);
   }
 }

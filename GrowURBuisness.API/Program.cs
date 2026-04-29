@@ -35,6 +35,9 @@ builder.Services.AddScoped(typeof(IGenericRepository<>), typeof(GenericRepositor
 builder.Services.AddScoped<IItemRepository, ItemRepository>();
 builder.Services.AddScoped<IInvoiceRepository, InvoiceRepository>();
 
+// Add services
+builder.Services.AddScoped<IItemService, ItemService>();
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.

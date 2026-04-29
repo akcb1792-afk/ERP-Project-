@@ -30,19 +30,48 @@ namespace GrowURBuisness.API.Controllers
                 .CountAsync();
             
             var totalRevenue = await _context.Invoices
-                .Where(i => i.Status == "Paid")
                 .SumAsync(i => i.TotalAmount);
             
             var today = DateTime.Today;
             var todayRevenue = await _context.Invoices
-                .Where(i => i.InvoiceDate.Date == today && i.Status == "Paid")
+                .Where(i => i.InvoiceDate.Date == today)
                 .SumAsync(i => i.TotalAmount);
+
+            // Calculate purchase orders data
+            var thisMonthStart = new DateTime(today.Year, today.Month, 1);
+            
+            var todaysSellOrders = await _context.Invoices
+                .Where(i => i.InvoiceDate.Date == today)
+                .CountAsync();
+            
+            var todaysPurchaseOrders = await _context.PurchaseOrders
+                .Where(po => po.OrderDate.Date == today)
+                .CountAsync();
+            
+            var thisMonthTotalSell = await _context.Invoices
+                .Where(i => i.InvoiceDate >= thisMonthStart)
+                .SumAsync(i => i.TotalAmount);
+            
+            var thisMonthTotalPurchase = await _context.PurchaseOrders
+                .Where(po => po.OrderDate >= thisMonthStart)
+                .SumAsync(po => po.TotalAmount);
+            
+            var todaysPurchase = await _context.PurchaseOrders
+                .Where(po => po.OrderDate.Date == today)
+                .SumAsync(po => po.TotalAmount);
 
             var stats = new
             {
+                TodaysSell = todayRevenue,
+                TodaysPurchase = todaysPurchase,
+                TodaysSellOrder = todaysSellOrders,
+                TodaysPurchaseOrder = todaysPurchaseOrders,
+                LowStockItems = lowStockItems,
+                ThisMonthTotalSell = thisMonthTotalSell,
+                ThisMonthTotalPurchase = thisMonthTotalPurchase,
                 TotalOrders = totalInvoices,
                 TotalQuantitySold = totalStockQuantity,
-                TotalPurchase = 0.0, // No purchase orders in current schema
+                TotalPurchase = todaysPurchase,
                 TodaysTotal = todayRevenue,
                 InventoryCount = totalItems,
                 TotalAmount = totalRevenue,
@@ -52,9 +81,8 @@ namespace GrowURBuisness.API.Controllers
                 TotalSalesQuantity = totalStockQuantity,
                 TotalPurchaseQuantity = 0,
                 TotalSalesValue = totalRevenue,
-                TotalPurchaseValue = 0.0,
-                Profit = totalRevenue - 0m, // Revenue - purchase cost
-                LowStockItems = lowStockItems,
+                TotalPurchaseValue = thisMonthTotalPurchase,
+                Profit = totalRevenue - thisMonthTotalPurchase,
                 PendingInvoices = await _context.Invoices.CountAsync(i => i.Status == "Pending")
             };
 
@@ -178,6 +206,77 @@ namespace GrowURBuisness.API.Controllers
             {
                 return BadRequest(new { error = ex.Message });
             }
+        }
+
+        // GET: api/dashboard/latest-sales-orders
+        [HttpGet("latest-sales-orders")]
+        public async Task<ActionResult<object>> GetLatestSalesOrders()
+        {
+            var latestSalesOrders = await _context.Invoices
+                .Include(i => i.Customer)
+                .OrderByDescending(i => i.InvoiceDate)
+                .Take(10)
+                .Select(i => new
+                {
+                    i.Id,
+                    InvoiceNumber = i.InvoiceNumber ?? "INV-" + i.Id.ToString("D6"),
+                    CustomerName = i.Customer.Name,
+                    i.TotalAmount,
+                    i.InvoiceDate,
+                    Status = i.Status ?? "Completed",
+                    ItemCount = _context.InvoiceItems.Where(ii => ii.InvoiceId == i.Id).Count()
+                })
+                .ToListAsync();
+
+            return Ok(latestSalesOrders);
+        }
+
+        // GET: api/dashboard/latest-purchase-orders
+        [HttpGet("latest-purchase-orders")]
+        public async Task<ActionResult<object>> GetLatestPurchaseOrders()
+        {
+            var latestPurchaseOrders = await _context.PurchaseOrders
+                .Include(po => po.Vendor)
+                .OrderByDescending(po => po.OrderDate)
+                .Take(10)
+                .Select(po => new
+                {
+                    po.Id,
+                    PurchaseOrderNumber = po.PurchaseOrderNumber ?? "PO-" + po.Id.ToString("D6"),
+                    VendorName = po.Vendor.Name,
+                    po.TotalAmount,
+                    po.OrderDate,
+                    Status = po.Status ?? "Pending",
+                    ItemCount = _context.PurchaseOrderItems.Where(poi => poi.PurchaseOrderId == po.Id).Count()
+                })
+                .ToListAsync();
+
+            return Ok(latestPurchaseOrders);
+        }
+
+        // GET: api/dashboard/top-lowest-stock
+        [HttpGet("top-lowest-stock")]
+        public async Task<ActionResult<object>> GetTopLowestStock()
+        {
+            var topLowestStock = await _context.Items
+                .Include(i => i.Category)
+                .Where(i => i.IsActive)
+                .OrderBy(i => i.StockQuantity)
+                .Take(10)
+                .Select(i => new
+                {
+                    i.Id,
+                    i.Name,
+                    i.StockQuantity,
+                    i.MinimumStock,
+                    i.Price,
+                    CategoryName = i.Category.Name,
+                    Shortage = i.MinimumStock - i.StockQuantity > 0 ? i.MinimumStock - i.StockQuantity : 0,
+                    Status = i.StockQuantity <= i.MinimumStock ? "Low Stock" : "In Stock"
+                })
+                .ToListAsync();
+
+            return Ok(topLowestStock);
         }
     }
 }

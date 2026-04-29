@@ -5,6 +5,8 @@ import { MatSnackBar } from '@angular/material/snack-bar';
 import { HttpClient } from '@angular/common/http';
 import { forkJoin } from 'rxjs';
 import { environment } from '../../../environments/environment';
+import { MatDialog } from '@angular/material/dialog';
+import { EditInvoiceDialogComponent } from './edit-invoice-dialog.component';
 
 @Component({
   selector: 'app-sales-list',
@@ -23,7 +25,8 @@ export class SalesListComponent implements OnInit {
   constructor(
     private fb: FormBuilder,
     private snackBar: MatSnackBar,
-    private http: HttpClient
+    private http: HttpClient,
+    private dialog: MatDialog
   ) {
     this.dataSource = new MatTableDataSource<any>();
     this.filterForm = this.fb.group({
@@ -462,5 +465,59 @@ export class SalesListComponent implements OnInit {
       </body>
       </html>
     `;
+  }
+
+  editInvoice(invoice: any): void {
+    console.log('Edit Invoice clicked:', invoice);
+    
+    // Create a simple edit dialog
+    const dialogRef = this.dialog.open(EditInvoiceDialogComponent, {
+      width: '600px',
+      data: {
+        invoice: invoice,
+        customers: this.customers
+      }
+    });
+
+    dialogRef.afterClosed().subscribe(result => {
+      if (result) {
+        console.log('Edit dialog result:', result);
+        this.saveEditedInvoice(result);
+      }
+    });
+  }
+
+  saveEditedInvoice(editedInvoice: any): void {
+    console.log('Saving edited invoice:', editedInvoice);
+    
+    // Set status based on payment type
+    const status = editedInvoice.paymentType === 'Credit' ? 'Pending' : 'Paid';
+    
+    // Send only the data that the API expects
+    const updateData = {
+      paymentType: editedInvoice.paymentType,
+      status: status
+    };
+
+    console.log('Sending update data:', updateData);
+    console.log('API URL:', `${environment.apiUrl}/billing/invoices/${editedInvoice.id}`);
+
+    this.http.put(`${environment.apiUrl}/billing/invoices/${editedInvoice.id}`, updateData).subscribe({
+      next: (response) => {
+        console.log('Invoice updated successfully:', response);
+        this.snackBar.open('Invoice updated successfully!', 'Close', {
+          duration: 3000
+        });
+        // Reload the sales list
+        this.loadSalesInvoices();
+      },
+      error: (error) => {
+        console.error('Error updating invoice:', error);
+        console.error('Error details:', error.error);
+        this.snackBar.open('Error updating invoice. Please try again.', 'Close', {
+          duration: 3000
+        });
+      }
+    });
   }
 }

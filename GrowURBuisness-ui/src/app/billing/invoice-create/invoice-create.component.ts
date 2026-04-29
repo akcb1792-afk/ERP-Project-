@@ -328,9 +328,23 @@ export class InvoiceCreateComponent implements OnInit {
   }
 
   generateInvoiceHTML(sale: any): string {
-    const customerName = sale.customerName || 'Walk-in Customer';
-    const createdDate = new Date(sale.createdDate).toLocaleDateString();
-    const createdTime = new Date(sale.createdDate).toLocaleTimeString();
+    // Debug: Log the sale object to see its structure
+    console.log('Invoice data structure:', sale);
+    
+    // Try multiple ways to get customer name
+    let customerName = 'Walk-in Customer';
+    if (sale.Customer?.Name) {
+      customerName = sale.Customer.Name;
+    } else if (sale.Customer?.name) {
+      customerName = sale.Customer.name;
+    } else if (sale.customerName) {
+      customerName = sale.customerName;
+    } else if (sale.CustomerName) {
+      customerName = sale.CustomerName;
+    }
+    
+    const createdDate = new Date(sale.InvoiceDate || sale.createdDate || sale.invoiceDate).toLocaleDateString();
+    const createdTime = new Date(sale.InvoiceDate || sale.createdDate || sale.invoiceDate).toLocaleTimeString();
     
     return `
       <!DOCTYPE html>
@@ -369,8 +383,8 @@ export class InvoiceCreateComponent implements OnInit {
           <div class="invoice-info">
             <div class="invoice-info-left">
               <p><strong>Customer:</strong> ${customerName}</p>
-              <p><strong>Payment Type:</strong> ${sale.paymentType}</p>
-              <p><strong>Status:</strong> ${sale.status}</p>
+              <p><strong>Payment Type:</strong> ${sale.PaymentType || sale.paymentType}</p>
+              <p><strong>Status:</strong> ${sale.Status || sale.status}</p>
             </div>
             <div class="invoice-info-right">
               <p><strong>Date:</strong> ${createdDate}</p>
@@ -390,15 +404,16 @@ export class InvoiceCreateComponent implements OnInit {
                 </tr>
               </thead>
               <tbody>
-                ${sale.items.map((item: any) => {
-                  const inventoryItem = this.filteredItems.find(inv => inv.id === item.itemId);
-                  const itemName = inventoryItem ? inventoryItem.name : 'Item #' + item.itemId;
+                ${(sale.Items || sale.items || []).map((item: any) => {
+                  const itemName = item.ItemName || item.name || 'Item #' + item.itemId;
+                  const price = item.UnitPrice || item.price;
+                  const quantity = item.Quantity || item.quantity;
                   return `
                     <tr>
                       <td>${itemName}</td>
-                      <td>${this.formatCurrency(item.price)}</td>
-                      <td>${item.quantity}</td>
-                      <td>${this.formatCurrency(item.price * item.quantity)}</td>
+                      <td>${this.formatCurrency(price)}</td>
+                      <td>${quantity}</td>
+                      <td>${this.formatCurrency(price * quantity)}</td>
                     </tr>
                   `;
                 }).join('')}
@@ -407,7 +422,7 @@ export class InvoiceCreateComponent implements OnInit {
           </div>
           
           <div class="invoice-total">
-            <h3>Total Amount: ${this.formatCurrency(sale.items.reduce((total: number, item: any) => total + (item.price * item.quantity), 0))}</h3>
+            <h3>Total Amount: ${this.formatCurrency(sale.TotalAmount || (sale.items || []).reduce((total: number, item: any) => total + (item.price * item.quantity), 0))}</h3>
           </div>
           
           <div class="invoice-footer">
@@ -489,7 +504,7 @@ export class InvoiceCreateComponent implements OnInit {
     
     this.isLoading = true;
     
-    // Create sale request
+    // Create invoice request
     const saleData = {
       customerId: this.selectedCustomer?.id || null,
       customerName: this.selectedCustomer?.name || 'Walk-in Customer',
@@ -501,41 +516,43 @@ export class InvoiceCreateComponent implements OnInit {
       }))
     };
 
-    // Use API service to create purchase order like submit purchase button
-    try {
-      this.http.post(`${environment.apiUrl}/Purchase`, {
-        VendorId: saleData.customerId,
-        Items: saleData.items.map(item => ({
-          ItemId: item.itemId,
-          Quantity: item.quantity,
-          UnitPrice: item.price
-        }))
-      }).subscribe({
-        next: (response: any) => {
-          if (response && response.id) {
-            alert(`Purchase Order created successfully! Opening print dialog...`);
-            // Print functionality would go here
-          } else {
-            alert(`Failed to create purchase order`);
-          }
-        },
-        error: (error) => {
-          console.error('Error creating invoice:', error);
-          alert('Failed to create invoice');
+    // Create invoice and then fetch complete data for printing
+    this.billingService.createInvoice({
+      customerId: saleData.customerId,
+      paymentType: saleData.paymentType,
+      items: saleData.items.map(item => ({
+        itemId: item.itemId,
+        quantity: item.quantity,
+        price: item.price
+      }))
+    }).subscribe({
+      next: (response) => {
+        if (response && response.success) {
+          // Fetch the complete invoice data with customer information
+          this.billingService.getInvoiceById(response.invoiceId).subscribe({
+            next: (invoice) => {
+              // Open invoice in new window with complete data
+              this.openInvoiceInNewWindow(invoice);
+              this.resetBill();
+              alert(`Sales Invoice created successfully!`);
+            },
+            error: (error) => {
+              console.error('Error fetching invoice details:', error);
+              alert('Invoice created but failed to load details for printing');
+              this.resetBill();
+            }
+          });
+        } else {
+          alert(`Failed to create invoice: ${response?.message || 'Unknown error'}`);
         }
-      });
-      
-      // Reset form and clear items
-      this.resetBill();
-      
-      // Print functionality would go here - sale data is in API response
-      console.log('Invoice created with print functionality');
-      
-    } catch (error) {
-      alert('Error creating sales invoice');
-    } finally {
-      this.isLoading = false;
-    }
+      },
+      error: (error) => {
+        console.error('Error creating invoice:', error);
+        alert('Failed to create invoice');
+      }
+    });
+    
+    this.isLoading = false;
   }
 
   validateStockAvailability(): { isValid: boolean; errorMessage: string } {

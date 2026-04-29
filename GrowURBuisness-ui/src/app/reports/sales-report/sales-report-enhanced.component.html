@@ -1,0 +1,105 @@
+<div class="sales-report-container">
+  <div class="header">
+    <h1>{{ title }}</h1>
+    <div class="actions">
+      <button mat-raised-button color="primary" (click)="exportToExcel()">
+        <mat-icon>download</mat-icon>
+        Export to Excel
+      </button>
+    </div>
+  </div>
+
+  <!-- Filters -->
+  <div class="filters-section">
+    <mat-card>
+      <mat-card-header>
+        <mat-card-title>Filters</mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <form [formGroup]="filterForm" class="filter-form">
+          <div class="filter-row">
+            <mat-form-field appearance="outline">
+              <mat-label>From Date</mat-label>
+              <input matInput type="date" formControlName="fromDate">
+            </mat-form-field>
+            <mat-form-field appearance="outline">
+              <mat-label>To Date</mat-label>
+              <input matInput type="date" formControlName="toDate">
+            </mat-form-field>
+            <mat-form-field appearance="outline">
+              <mat-label>Customer</mat-label>
+              <mat-select formControlName="customerId">
+                <mat-option value="">All Customers</mat-option>
+                <mat-option *ngFor="let customer of customers" [value]="customer.Id">
+                  {{ customer.Name }}
+                </mat-option>
+              </mat-select>
+            </mat-form-field>
+          </div>
+          <div class="filter-actions">
+            <button mat-raised-button color="primary" (click)="applyFilters()">Apply Filters</button>
+            <button mat-stroked-button color="primary" (click)="clearFilters()">Clear</button>
+          </div>
+        </form>
+      </mat-card-content>
+    </mat-card>
+  </div>
+
+  <!-- Loading and Error States -->
+  <div class="loading-container" *ngIf="isLoading">
+    <mat-spinner></mat-spinner>
+    <p>Loading sales data...</p>
+  </div>
+
+  <div class="error-container" *ngIf="error">
+    <mat-icon class="error-icon">error</mat-icon>
+    <p>{{ error }}</p>
+  </div>
+
+  <!-- Sales Data Table -->
+  <div class="data-section" *ngIf="!isLoading && !error">
+    <mat-card>
+      <mat-card-header>
+        <mat-card-title>Sales Data</mat-card-title>
+        <div class="summary-info">
+          <span>Total Sales: {{ formatCurrency(totalSales) }}</span>
+          <span>Total Invoices: {{ totalInvoices }}</span>
+        </div>
+      </mat-card-header>
+      <mat-card-content>
+        <table mat-table [dataSource]="filteredSalesData" class="sales-table">
+          <!-- Invoice Number Column -->
+          <ng-container matColumnDef="invoiceNumber">
+            <th mat-header-cell *matHeaderCellDef>Invoice #</th>
+            <td mat-cell *matCellDef="let row">{{ row.invoiceNumber }}</td>
+          </ng-container>
+
+          <!-- Customer Name Column -->
+          <ng-container matColumnDef="customerName">
+            <th mat-header-cell *matHeaderCellDef>Customer</th>
+            <td mat-cell *matCellDef="let row">{{ row.customerName }}</td>
+          </ng-container>
+
+          <!-- Total Column -->
+          <ng-container matColumnDef="total">
+            <th mat-header-cell *matHeaderCellDef>Total</th>
+            <td mat-cell *matCellDef="let row">{{ formatCurrency(row.total) }}</td>
+          </ng-container>
+
+          <!-- Date Column -->
+          <ng-container matColumnDef="date">
+            <th mat-header-cell *matHeaderCellDef>Date</th>
+            <td mat-cell *matCellDef="let row">{{ row.date | date }}</td>
+          </ng-container>
+
+          <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+          <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+        </table>
+
+        <div class="no-data" *ngIf="filteredSalesData.length === 0">
+          <p>No sales data available for the selected criteria</p>
+        </div>
+      </mat-card-content>
+    </mat-card>
+  </div>
+</div>
